@@ -1,0 +1,21 @@
+{
+  "name": "tankme",
+  "private": true,
+  "version": "0.1.0",
+  "description": "TankMe - browser 3D team tank battle game",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.180.0",
+    "typescript": "^5.6.3",
+    "vite": "^7.1.0"
+  }
+}

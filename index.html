@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TankMe</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <div id="ui">
+    <!-- ============ LOADING ============ -->
+    <div id="loading-screen" class="screen visible">
+      <div class="loading-logo">TANK<span>ME</span></div>
+      <div class="loading-bar"><div id="loading-fill"></div></div>
+      <div class="loading-tip" id="loading-tip">Preparing battlefield…</div>
+    </div>
+
+    <!-- ============ MAIN MENU ============ -->
+    <div id="menu-screen" class="screen">
+      <div class="menu-gradient"></div>
+      <div class="menu-content">
+        <div class="menu-logo-wrap">
+          <h1 class="logo">TANK<span>ME</span></h1>
+          <div class="menu-subline">3D TEAM TANK BATTLES</div>
+        </div>
+        <div class="menu-buttons">
+          <button id="btn-battle" class="btn btn-primary">▶&nbsp; BATTLE</button>
+          <button id="btn-howto" class="btn">HOW TO PLAY</button>
+          <button id="btn-settings" class="btn">SETTINGS</button>
+        </div>
+        <div class="menu-footer">
+          <span>v0.1 · offline AI combat</span>
+          <span>Ironridge Crossing · Team Deathmatch</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ DEPLOY ============ -->
+    <div id="deploy-screen" class="screen">
+      <div class="panel-screen">
+        <div class="screen-header">
+          <button id="btn-deploy-back" class="btn btn-small">← BACK</button>
+          <h2 class="screen-title">DEPLOY</h2>
+          <div class="header-spacer"></div>
+        </div>
+        <div class="deploy-body">
+          <div class="deploy-col">
+            <h3 class="col-label">BATTLE MODE</h3>
+            <div id="mode-cards"></div>
+            <h3 class="col-label">BRIEFING</h3>
+            <div class="briefing-box">
+              Team Deathmatch on <b>Ironridge Crossing</b>. Destroy enemy armor to score
+              for your team. Higher score when the timer ends wins. Pick up supply drops
+              for combat advantages.
+            </div>
+          </div>
+          <div class="deploy-col">
+            <h3 class="col-label">SELECT VEHICLE</h3>
+            <div id="tank-cards"></div>
+            <div id="deploy-preview"></div>
+          </div>
+        </div>
+        <button id="btn-deploy" class="btn btn-primary btn-deploy">DEPLOY →</button>
+      </div>
+    </div>
+
+    <!-- ============ SETTINGS ============ -->
+    <div id="settings-screen" class="screen">
+      <div class="panel-screen panel-narrow">
+        <div class="screen-header">
+          <button id="btn-settings-back" class="btn btn-small">← BACK</button>
+          <h2 class="screen-title">SETTINGS</h2>
+          <div class="header-spacer"></div>
+        </div>
+        <div class="settings-body">
+          <div class="setting-row">
+            <span class="setting-label">GRAPHICS QUALITY</span>
+            <div id="quality-buttons" class="seg-buttons"></div>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">MOUSE SENSITIVITY</span>
+            <div class="setting-control">
+              <input type="range" id="sensitivity" min="20" max="200" value="100" />
+              <span id="sensitivity-val" class="setting-val">1.00</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">MASTER VOLUME</span>
+            <div class="setting-control">
+              <input type="range" id="volume" min="0" max="100" value="80" />
+              <span id="volume-val" class="setting-val">80%</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">CAMERA SHAKE</span>
+            <button id="toggle-shake" class="btn btn-small btn-toggle">ON</button>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">SHOW FPS</span>
+            <button id="toggle-fps" class="btn btn-small btn-toggle">OFF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ HOW TO PLAY ============ -->
+    <div id="howto-screen" class="screen">
+      <div class="panel-screen panel-narrow">
+        <div class="screen-header">
+          <button id="btn-howto-back" class="btn btn-small">← BACK</button>
+          <h2 class="screen-title">HOW TO PLAY</h2>
+          <div class="header-spacer"></div>
+        </div>
+        <div class="howto-body">
+          <table class="controls-table">
+            <tr><td class="key">W / S</td><td>Drive forward / reverse</td></tr>
+            <tr><td class="key">A / D</td><td>Steer hull left / right</td></tr>
+            <tr><td class="key">MOUSE</td><td>Aim camera — turret follows</td></tr>
+            <tr><td class="key">LEFT MOUSE</td><td>Fire main gun</td></tr>
+            <tr><td class="key">RIGHT MOUSE</td><td>Hold to zoom (gunner sight)</td></tr>
+            <tr><td class="key">SPACE</td><td>Emergency brake</td></tr>
+            <tr><td class="key">ESC</td><td>Pause menu</td></tr>
+          </table>
+          <div class="tips-box">
+            <h4>FIELD MANUAL</h4>
+            <ul>
+              <li><b>Armor matters.</b> Frontal armor is thickest. Hit sides and especially the rear for far more damage.</li>
+              <li><b>Angle your hull.</b> Facing the enemy head-on makes their shots bounce weaker.</li>
+              <li><b>Use cover.</b> Poke, shoot, hide. Reload behind buildings and rocks.</li>
+              <li><b>Supply drops</b> fall on marked points: repair, shield, damage boost and cloaking.</li>
+              <li><b>Teamwork wins.</b> Fight with your team — a lone tank is an easy kill.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ HUD ============ -->
+    <div id="hud" class="screen">
+      <!-- top center score bar -->
+      <div id="scorebar">
+        <div class="team-block team-a">
+          <span class="team-name" id="team-a-label">COBALT</span>
+          <span class="team-score" id="score-a">0</span>
+        </div>
+        <div id="timer-wrap">
+          <div id="match-timer">08:00</div>
+          <div id="match-mode-label">TEAM DEATHMATCH</div>
+        </div>
+        <div class="team-block team-b">
+          <span class="team-score" id="score-b">0</span>
+          <span class="team-name" id="team-b-label">CRIMSON</span>
+        </div>
+      </div>
+
+      <!-- kill feed -->
+      <div id="killfeed"></div>
+
+      <!-- minimap -->
+      <div id="minimap-wrap"><canvas id="minimap" width="200" height="200"></canvas></div>
+
+      <!-- crosshair -->
+      <div id="crosshair">
+        <div id="reload-ring"></div>
+        <div class="ch-tick ch-t"></div>
+        <div class="ch-tick ch-b"></div>
+        <div class="ch-tick ch-l"></div>
+        <div class="ch-tick ch-r"></div>
+        <div id="crosshair-dot"></div>
+      </div>
+      <div id="hitmarker">
+        <div class="hm hm1"></div><div class="hm hm2"></div>
+        <div class="hm hm3"></div><div class="hm hm4"></div>
+      </div>
+
+      <!-- damage direction -->
+      <div id="dmg-dir"><div class="dir-arc"></div></div>
+
+      <!-- bottom center vehicle panel -->
+      <div id="vehicle-panel">
+        <div id="buff-bar"></div>
+        <div id="vehicle-frame">
+          <div id="hud-tank-name">VANGUARD</div>
+          <div id="hp-bar"><div id="hp-fill"></div></div>
+          <div id="hp-num">950 / 950</div>
+        </div>
+        <div id="reload-text">READY</div>
+      </div>
+
+      <!-- speed -->
+      <div id="speed-hud">0 km/h</div>
+
+      <!-- misc -->
+      <div id="pickup-banner"></div>
+      <div id="controls-hint">WASD drive · MOUSE aim · LMB fire · RMB zoom · ESC menu</div>
+      <div id="fps-counter"></div>
+      <div id="battle-banner"></div>
+      <div id="vignette-damage"></div>
+      <div id="vignette-lowhp"></div>
+
+      <!-- respawn overlay -->
+      <div id="respawn-overlay">
+        <div class="respawn-title">VEHICLE DESTROYED</div>
+        <div id="respawn-killer">destroyed by CRIMSON-3</div>
+        <div class="respawn-count-wrap">RESPAWN IN <span id="respawn-count">5</span></div>
+      </div>
+    </div>
+
+    <!-- floating damage numbers layer -->
+    <div id="dmg-layer"></div>
+
+    <!-- ============ PAUSE ============ -->
+    <div id="pause-screen" class="screen">
+      <div class="pause-panel">
+        <h2 class="pause-title">PAUSED</h2>
+        <button id="btn-resume" class="btn btn-primary">RESUME</button>
+        <button id="btn-pause-settings" class="btn">SETTINGS</button>
+        <button id="btn-pause-howto" class="btn">HOW TO PLAY</button>
+        <button id="btn-leave" class="btn btn-danger">LEAVE BATTLE</button>
+      </div>
+    </div>
+
+    <!-- ============ RESULTS ============ -->
+    <div id="results-screen" class="screen">
+      <div class="results-panel">
+        <div id="results-banner">VICTORY</div>
+        <div id="results-scores">
+          <div class="team-block team-a"><span class="team-name" id="results-team-a">COBALT</span><span class="team-score" id="results-score-a">0</span></div>
+          <div id="results-vs">—</div>
+          <div class="team-block team-b"><span class="team-score" id="results-score-b">0</span><span class="team-name" id="results-team-b">CRIMSON</span></div>
+        </div>
+        <div id="player-stats"></div>
+        <h4 class="scoreboard-label">BATTLE REPORT</h4>
+        <div id="scoreboard-wrap"><table id="scoreboard"></table></div>
+        <div class="results-buttons">
+          <button id="btn-rematch" class="btn btn-primary">REMATCH</button>
+          <button id="btn-results-menu" class="btn">MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
