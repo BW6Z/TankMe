@@ -30,6 +30,7 @@ export interface TankDeps {
   hitFx(pos: THREE.Vector3, normal: THREE.Vector3, kind: 'dirt' | 'metal' | 'armor'): void;
   tankSmoke(pos: THREE.Vector3, heavy: boolean): void;
   pickupFx(pos: THREE.Vector3, color: number): void;
+  exhaust(pos: THREE.Vector3, intensity: number): void;
   addTrauma(amount: number): void;
   playFire(pos: THREE.Vector3, big: boolean): void;
   playExplosion(pos: THREE.Vector3, big: boolean): void;
@@ -81,6 +82,13 @@ export class Tank {
   private nameHpFrac = -1;
   nameColor = 0xffffff;
   private lastYawRate = 0;
+  private prevSpeed = 0;
+  private pitchKick = 0;
+  private rollLean = 0;
+  private hitPitch = 0;
+  private hitRoll = 0;
+  private bobT = 0;
+  private exhaustTimer = 0;
 
   constructor(
     readonly spec: TankSpec,
@@ -241,6 +249,15 @@ export class Tank {
     this.updateVisual(dt);
     this.visual.root.updateMatrixWorld(true);
 
+    // exhaust wisp (rate scales with throttle)
+    this.exhaustTimer -= dt;
+    if (this.exhaustTimer <= 0 && this.spec.cls !== undefined) {
+      this.exhaustTimer = 0.14 + Math.random() * 0.1;
+      _v1.copy(this.visual.exhaustLocal);
+      this.visual.root.localToWorld(_v1);
+      this.deps.exhaust(_v1, 0.5 + Math.max(0, inp.throttle) * 0.8);
+    }
+
     if (inp.fire && this.reloadLeft <= 0) {
       this.fire();
     }
@@ -287,19 +304,38 @@ export class Tank {
     _q1.setFromRotationMatrix(_m1);
     v.root.quaternion.slerp(_q1, Math.min(1, 7 * dt));
 
+    // weight shift: nose pitch under accel/brake, hull roll while turning
+    const accel = (this.speed - this.prevSpeed) / Math.max(dt, 1e-4);
+    this.prevSpeed = this.speed;
+    const maxSpeed = this.spec.mobility.maxSpeed;
+    const pitchTarget = THREE.MathUtils.clamp(-accel * 0.004, -0.05, 0.05);
+    const rollTarget = this.lastYawRate * Math.min(1, Math.abs(this.speed) / maxSpeed) * 0.05;
+    this.pitchKick += (pitchTarget - this.pitchKick) * Math.min(1, 5 * dt);
+    this.rollLean += (rollTarget - this.rollLean) * Math.min(1, 4 * dt);
+    // hit impulse springs decay
+    this.hitPitch *= Math.pow(0.02, dt);
+    this.hitRoll *= Math.pow(0.02, dt);
+    v.root.rotateX(this.pitchKick + this.hitPitch);
+    v.root.rotateZ(this.rollLean + this.hitRoll);
+
+    // suspension bob while moving
+    if (Math.abs(this.speed) > 0.4) {
+      this.bobT += dt * (5 + Math.abs(this.speed) * 1.1);
+      v.root.position.y += Math.sin(this.bobT) * 0.018 * Math.min(1, Math.abs(this.speed) / 5);
+    }
+
     v.turretPivot.rotation.y = this.turretYaw - this.yaw;
     v.barrelPivot.rotation.x = -this.barrelPitch;
 
     // barrel recoil
-    const barrelMesh = v.barrelPivot.children[0] as THREE.Mesh;
-    barrelMesh.position.z = -this.recoil * 0.5;
+    v.barrelMesh.position.z = -this.recoil * 0.5;
 
     // track scroll — tracks move opposite while pivoting
     const halfTrack = (this.spec.dims.hullW + this.spec.dims.trackW) / 2;
     const vL = this.speed - this.lastYawRate * halfTrack;
     const vR = this.speed + this.lastYawRate * halfTrack;
-    this.visual.trackTexL.offset.x -= (vL * dt) / 1.25;
-    this.visual.trackTexR.offset.x -= (vR * dt) / 1.25;
+    this.visual.trackTexL.offset.x -= (vL * dt) / 1.35;
+    this.visual.trackTexR.offset.x -= (vR * dt) / 1.35;
   }
 
   private fire(): void {
@@ -352,6 +388,9 @@ export class Tank {
   applyDamage(amount: number, attacker: Tank | null, point: THREE.Vector3, crit: boolean): number {
     if (!this.alive) return 0;
     if (this.spawnProt > 0) return 0;
+    // visual hit reaction
+    this.hitPitch += (Math.random() - 0.5) * 0.05;
+    this.hitRoll += (Math.random() - 0.5) * 0.07;
     const applied = amount * this.damageTakenMult;
     this.hp = Math.max(0, this.hp - applied);
     this.stats.damageTaken += applied;

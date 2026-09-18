@@ -67,7 +67,7 @@ export const TANKS: Record<string, TankSpec> = {
     armor: { front: 34, side: 22, rear: 14, turret: 40 },
     mobility: { maxSpeed: 15.5, reverseSpeed: 8, accel: 9, brake: 14, hullRot: 2.3, turretRot: 3.0, barrelPitchSpeed: 1.4 },
     dims: { hullW: 2.6, hullH: 1.1, hullL: 5.2, trackW: 0.62, turretH: 0.75, gunLen: 3.4 },
-    colors: { hull: 0x9a8a5a, dark: 0x4a4432, accent: 0xc9b070 },
+    colors: { hull: 0xb0a06e, dark: 0x5a5240, accent: 0xd9c17c },
   },
   vanguard: {
     id: 'vanguard',
@@ -79,7 +79,7 @@ export const TANKS: Record<string, TankSpec> = {
     armor: { front: 58, side: 38, rear: 22, turret: 66 },
     mobility: { maxSpeed: 12, reverseSpeed: 6.5, accel: 6.5, brake: 10, hullRot: 1.7, turretRot: 2.1, barrelPitchSpeed: 1.1 },
     dims: { hullW: 3.0, hullH: 1.25, hullL: 6.2, trackW: 0.72, turretH: 0.9, gunLen: 4.0 },
-    colors: { hull: 0x5d6b4a, dark: 0x39422e, accent: 0x7d8c66 },
+    colors: { hull: 0x71805a, dark: 0x444e38, accent: 0x93a378 },
   },
   colossus: {
     id: 'colossus',
@@ -91,7 +91,7 @@ export const TANKS: Record<string, TankSpec> = {
     armor: { front: 90, side: 60, rear: 34, turret: 100 },
     mobility: { maxSpeed: 9, reverseSpeed: 5, accel: 4.5, brake: 8, hullRot: 1.15, turretRot: 1.35, barrelPitchSpeed: 0.8 },
     dims: { hullW: 3.5, hullH: 1.45, hullL: 7.0, trackW: 0.85, turretH: 1.05, gunLen: 4.6 },
-    colors: { hull: 0x596065, dark: 0x363b40, accent: 0x79828a },
+    colors: { hull: 0x6d747c, dark: 0x41464c, accent: 0x8b959e },
   },
 };
 

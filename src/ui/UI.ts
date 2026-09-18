@@ -1,6 +1,5 @@
 /** All DOM UI: menus, deploy, settings, HUD, pause, results. */
 import { MATCH_MODES, TEAMS } from '../config/match';
-import type { MatchModeDef } from '../config/match';
 import { TANKS, TANK_IDS, tankRatings } from '../config/tanks';
 import type { TankSpec } from '../config/tanks';
 import { POWERUPS } from '../config/powerups';
@@ -16,10 +15,15 @@ export interface UICallbacks {
   rematch(): void;
   leaveBattle(): void;
   resume(): void;
+  previewTank(tankId: string): void;
   qualityChanged(q: QualityLevel): void;
 }
 
 type ScreenName = 'loading' | 'menu' | 'deploy' | 'settings' | 'howto' | 'battle' | 'pause' | 'results';
+
+const BUFF_ICONS: Record<PowerupId, string> = {
+  damage: 'i-shell', defense: 'i-shield', health: 'i-wrench', invisibility: 'i-cloak',
+};
 
 function id<T extends HTMLElement = HTMLElement>(name: string): T {
   const el = document.getElementById(name);
@@ -29,22 +33,23 @@ function id<T extends HTMLElement = HTMLElement>(name: string): T {
 
 export class UI {
   private screens: Record<ScreenName, HTMLElement>;
-  private settingsReturn: 'menu' | 'pause' | 'deploy' = 'menu';
-  private selectedMode: MatchModeDef;
+  private settingsReturn: 'menu' | 'pause' = 'menu';
+  private selectedMode: (typeof MATCH_MODES)[number];
   private selectedTank: string;
   private hintTimer = 0;
   private buffAcc = 0;
   private lastBuffKey = '';
   private vignetteLevel = 0;
   private bannerTimeout: number | undefined;
+  private scorePop = new Map<string, number>();
 
-  // HUD element refs
   private hpFill = id<HTMLDivElement>('hp-fill');
   private hpNum = id<HTMLDivElement>('hp-num');
-  private tankName = id<HTMLDivElement>('hud-tank-name');
+  private hudTankName = id<HTMLDivElement>('hud-tank-name');
   private reloadRing = id<HTMLDivElement>('reload-ring');
   private reloadText = id<HTMLDivElement>('reload-text');
   private crosshair = id<HTMLDivElement>('crosshair');
+  private gunMarker = id<HTMLDivElement>('gun-marker');
   private hitmarkerEl = id<HTMLDivElement>('hitmarker');
   private dmgDir = id<HTMLDivElement>('dmg-dir');
   private scoreA = id<HTMLSpanElement>('score-a');
@@ -62,6 +67,10 @@ export class UI {
   private respawnCount = id<HTMLSpanElement>('respawn-count');
   private battleBanner = id<HTMLDivElement>('battle-banner');
   private controlsHint = id<HTMLDivElement>('controls-hint');
+  private targetInfo = id<HTMLDivElement>('target-info');
+  private tiName = id<HTMLSpanElement>('ti-name');
+  private tiDist = id<HTMLSpanElement>('ti-dist');
+  private tiHpFill = id<HTMLDivElement>('ti-hp-fill');
 
   private hitmarkerTimeout: number | undefined;
   private dirTimeout: number | undefined;
@@ -91,14 +100,11 @@ export class UI {
     id('results-team-b').textContent = TEAMS[1].name;
   }
 
-  // ---------------- screens ----------------
-
   show(screen: ScreenName): void {
     const base: ScreenName[] = ['loading', 'menu', 'deploy', 'battle'];
     for (const name of base) {
       this.screens[name].classList.toggle('visible', name === screen);
     }
-    // overlay screens sit on top; settings/howto opened from pause keep pause visible
     this.screens.pause.classList.toggle('visible', screen === 'pause' || ((screen === 'settings' || screen === 'howto') && this.settingsReturn === 'pause'));
     this.screens.results.classList.toggle('visible', screen === 'results');
     this.screens.settings.classList.toggle('visible', screen === 'settings');
@@ -131,9 +137,7 @@ export class UI {
     id('btn-results-menu').onclick = () => { this.click(); this.cb.leaveBattle(); };
   }
 
-  click(): void {
-    // audio wired by Game via window event hook; keep UI snappy
-  }
+  click(): void { /* audio hooked by game */ }
 
   // ---------------- deploy ----------------
 
@@ -144,8 +148,10 @@ export class UI {
       const card = document.createElement('div');
       card.className = 'mode-card' + (m.id === this.selectedMode.id ? ' selected' : '');
       card.innerHTML = `
-        <div class="mc-tag">${m.teamSize} v ${m.teamSize}</div>
-        <div class="mc-name">${m.id === '7v7' ? 'SKIRMISH <b>7v7</b>' : 'FRONTLINE <b>14v14</b>'}</div>
+        <div class="mc-row">
+          <div class="mc-name">${m.id === '7v7' ? 'SKIRMISH <b>7v7</b>' : 'FRONTLINE <b>14v14</b>'}</div>
+          <div class="mc-tag">FIRST TO ${m.scoreLimit}</div>
+        </div>
         <div class="mc-desc">${m.desc}</div>`;
       card.onclick = () => {
         this.selectedMode = m;
@@ -159,20 +165,24 @@ export class UI {
     tankWrap.innerHTML = '';
     for (const tid of TANK_IDS) {
       const spec = TANKS[tid];
+      const r = tankRatings(spec);
       const card = document.createElement('div');
       card.className = 'tank-card' + (tid === this.selectedTank ? ' selected' : '');
-      const hex = '#' + new Color(spec.colors.hull).getHexString();
+      const hex = '#' + spec.colors.hull.toString(16).padStart(6, '0');
+      const pips = (v: number) => Array.from({ length: 5 }, (_, i) => `<i class="${i < Math.round(v * 5) ? 'on' : ''}"></i>`).join('');
       card.innerHTML = `
-        <div class="tc-swatch" style="background: linear-gradient(135deg, ${hex}, ${hex} 60%, #2a2f26)"></div>
+        <div class="tc-sw" style="background: linear-gradient(135deg, ${hex}, #262b22)"></div>
         <div class="tc-info">
           <div class="tc-name">${spec.name}</div>
           <div class="tc-class">${spec.cls} tank</div>
+          <div class="tc-pips" title="firepower">${pips(r.firepower)}</div>
         </div>`;
       card.onclick = () => {
         this.selectedTank = tid;
         tankWrap.querySelectorAll('.tank-card').forEach((c) => c.classList.remove('selected'));
         card.classList.add('selected');
         this.renderPreview();
+        this.cb.previewTank(tid);
       };
       tankWrap.appendChild(card);
     }
@@ -184,11 +194,12 @@ export class UI {
     const r = tankRatings(spec);
     const dps = (spec.gun.damage / spec.gun.reload).toFixed(0);
     const rows: [string, number, string][] = [
-      ['Hit points', r.hp, `${spec.maxHp}`],
-      ['Firepower', r.firepower, `${spec.gun.damage} dmg / ${dps} dps`],
+      ['Hit points', r.hp, `${spec.maxHp} HP`],
+      ['Firepower', r.firepower, `${spec.gun.damage} dmg`],
+      ['DPM', spec.gun.damage / spec.gun.reload / 45, `${dps} dps`],
       ['Armor', r.armor, `${spec.armor.front} front`],
       ['Mobility', r.speed, `${(spec.mobility.maxSpeed * 3.6).toFixed(0)} km/h`],
-      ['Turret speed', r.turret, `${spec.mobility.turretRot.toFixed(1)} rad/s`],
+      ['Turret', r.turret, `${spec.mobility.turretRot.toFixed(1)} rad/s`],
     ];
     id<HTMLDivElement>('deploy-preview').innerHTML = `
       <div class="dp-name">${spec.name}</div>
@@ -210,7 +221,7 @@ export class UI {
       qWrap.innerHTML = '';
       for (const l of levels) {
         const b = document.createElement('button');
-        b.className = 'btn btn-small' + (this.settings.data.quality === l ? ' active' : '');
+        b.className = 'btn-toggle' + (this.settings.data.quality === l ? ' active' : '');
         b.textContent = QUALITY_PRESETS[l].label;
         b.onclick = () => {
           this.settings.data.quality = l;
@@ -256,15 +267,18 @@ export class UI {
 
   hudFrame(dt: number, data: {
     spec: TankSpec; hp: number; maxHp: number; reloadFrac: number; zoomed: boolean;
-    speedKmh: number; buffs: { id: PowerupId; def: PowerupDef; time: number }[];
+    speedKmh: number; spread: number;
+    buffs: { id: PowerupId; def: PowerupDef; time: number }[];
     scoreA: number; scoreB: number; timeLeft: number; alive: boolean; respawnTimer: number;
     killedBy: string;
+    gunMarker: { x: number; y: number; behind: boolean } | null;
+    aimTarget: { name: string; hp: number; maxHp: number; dist: number } | null;
   }): void {
     const hpFrac = data.hp / data.maxHp;
     this.hpFill.style.width = `${Math.max(0, hpFrac * 100)}%`;
     this.hpFill.className = hpFrac > 0.55 ? '' : hpFrac > 0.25 ? 'hurt' : 'critical';
     this.hpNum.textContent = `${Math.ceil(Math.max(0, data.hp))} / ${data.maxHp}`;
-    this.tankName.innerHTML = `<b>${data.spec.name}</b><span>${data.spec.cls.toUpperCase()}</span>`;
+    this.hudTankName.innerHTML = `<b>${data.spec.name}</b><span>${data.spec.cls.toUpperCase()}</span>`;
 
     const rf = Math.min(1, Math.max(0, data.reloadFrac));
     const ready = rf >= 1;
@@ -275,10 +289,30 @@ export class UI {
     this.reloadText.textContent = ready ? 'READY' : 'RELOADING';
     this.reloadText.className = ready ? '' : 'loading';
     this.crosshair.className = data.zoomed ? 'zoomed' : '';
+    this.crosshair.style.setProperty('--spread', `${(6 + data.spread * 18).toFixed(1)}px`);
 
-    this.speedHud.textContent = `${Math.abs(Math.round(data.speedKmh))} km/h`;
-    this.scoreA.textContent = String(data.scoreA);
-    this.scoreB.textContent = String(data.scoreB);
+    // gun alignment marker
+    if (data.gunMarker && !data.gunMarker.behind) {
+      this.gunMarker.style.display = 'block';
+      this.gunMarker.style.left = `${(data.gunMarker.x * 100).toFixed(2)}%`;
+      this.gunMarker.style.top = `${(data.gunMarker.y * 100).toFixed(2)}%`;
+    } else {
+      this.gunMarker.style.display = 'none';
+    }
+
+    // target info panel
+    if (data.aimTarget) {
+      this.targetInfo.classList.add('visible', 'enemy');
+      this.tiName.textContent = data.aimTarget.name;
+      this.tiDist.textContent = `${Math.round(data.aimTarget.dist)} m`;
+      this.tiHpFill.style.width = `${Math.max(0, (data.aimTarget.hp / data.aimTarget.maxHp) * 100)}%`;
+    } else {
+      this.targetInfo.classList.remove('visible');
+    }
+
+    this.speedHud.innerHTML = `${Math.abs(Math.round(data.speedKmh))} <span>km/h</span>`;
+    this.setScore(this.scoreA, data.scoreA, 'a');
+    this.setScore(this.scoreB, data.scoreB, 'b');
     const t = Math.max(0, Math.ceil(data.timeLeft));
     this.matchTimer.textContent = `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
     this.matchTimer.classList.toggle('low', t <= 30);
@@ -291,9 +325,10 @@ export class UI {
       this.lastBuffKey = key;
       this.buffBar.innerHTML = data.buffs.map((b) => `
         <div class="buff-chip">
-          <span class="bc-icon" style="background:${b.def.cssColor}"></span>
+          <svg style="color:${b.def.cssColor}"><use href="#${BUFF_ICONS[b.id]}"/></svg>
           <span class="bc-name">${b.def.name}</span>
           <span class="bc-time">${Math.ceil(b.time)}s</span>
+          <div class="bc-bar" style="background:${b.def.cssColor};width:${Math.min(100, (b.time / b.def.duration) * 100)}%"></div>
         </div>`).join('');
     }
 
@@ -316,6 +351,23 @@ export class UI {
     if (this.hintTimer > 12) this.controlsHint.classList.add('fade');
   }
 
+  private setScore(el: HTMLSpanElement, v: number, team: 'a' | 'b'): void {
+    const key = team + v;
+    if (!this.scorePop.has(key)) {
+      const prev = team === 'a' ? this.lastA : this.lastB;
+      if (v !== prev) {
+        el.classList.remove('pop');
+        void el.offsetWidth;
+        el.classList.add('pop');
+      }
+      if (team === 'a') this.lastA = v; else this.lastB = v;
+      this.scorePop.set(key, 1);
+    }
+    el.textContent = String(v);
+  }
+  private lastA = 0;
+  private lastB = 0;
+
   resetHud(): void {
     this.hintTimer = 0;
     this.controlsHint.classList.remove('fade');
@@ -323,13 +375,19 @@ export class UI {
     this.buffBar.innerHTML = '';
     this.lastBuffKey = '';
     this.vignetteLevel = 0;
+    this.lastA = 0; this.lastB = 0;
     this.respawnOverlay.classList.remove('visible');
+    this.targetInfo.classList.remove('visible');
+    this.scorePop.clear();
   }
 
   killfeed(killerName: string, killerTeam: number, victimName: string, victimTeam: number): void {
     const item = document.createElement('div');
     item.className = 'kf-item';
-    item.innerHTML = `<span class="${killerTeam === 0 ? 'kf-a' : 'kf-b'}">${killerName}</span><span class="kf-icon">✖</span><span class="${victimTeam === 0 ? 'kf-a' : 'kf-b'}">${victimName}</span>`;
+    item.innerHTML =
+      `<span class="${killerTeam === 0 ? 'kf-a' : 'kf-b'}">${killerName}</span>` +
+      `<svg><use href="#i-skull"/></svg>` +
+      `<span class="${victimTeam === 0 ? 'kf-a' : 'kf-b'}">${victimName}</span>`;
     this.killfeedEl.prepend(item);
     while (this.killfeedEl.children.length > 6) this.killfeedEl.lastChild?.remove();
     setTimeout(() => item.remove(), 7000);
@@ -358,7 +416,8 @@ export class UI {
     el.className = 'pb-item';
     el.style.borderColor = def.cssColor;
     el.style.color = def.cssColor;
-    el.innerHTML = `<span style="width:12px;height:12px;background:${def.cssColor};display:inline-block;border-radius:2px"></span> ${def.name}`;
+    const iconId = BUFF_ICONS[def.id];
+    el.innerHTML = `<svg style="color:${def.cssColor}"><use href="#${iconId}"/></svg> ${def.name}`;
     this.pickupBanner.appendChild(el);
     setTimeout(() => el.classList.add('out'), 2200);
     setTimeout(() => el.remove(), 2700);
@@ -401,7 +460,7 @@ export class UI {
       <div class="ps-cell"><div class="ps-val">${p.shots}</div><div class="ps-label">Shots fired</div></div>
       <div class="ps-cell"><div class="ps-val">${acc}%</div><div class="ps-label">Accuracy</div></div>
       <div class="ps-cell"><div class="ps-val">${(p.damage / minutes).toFixed(0)}</div><div class="ps-label">DPM</div></div>
-      <div class="ps-cell"><div class="ps-val">${payload.scores[0] > payload.scores[1] ? TEAMS[0].name : payload.scores[1] > payload.scores[0] ? TEAMS[1].name : '—'}</div><div class="ps-label">MVP team</div></div>
+      <div class="ps-cell"><div class="ps-val">${payload.scores[0] > payload.scores[1] ? TEAMS[0].name : payload.scores[1] > payload.scores[0] ? TEAMS[1].name : '—'}</div><div class="ps-label">Winner</div></div>
     ` : '';
 
     const sb = id<HTMLTableElement>('scoreboard');
@@ -418,13 +477,5 @@ export class UI {
   loading(p: number, tip: string): void {
     id<HTMLDivElement>('loading-fill').style.width = `${Math.round(p * 100)}%`;
     id<HTMLDivElement>('loading-tip').textContent = tip;
-  }
-}
-
-// tiny local color helper to avoid importing three into UI
-class Color {
-  constructor(private hex: number) {}
-  getHexString(): string {
-    return this.hex.toString(16).padStart(6, '0');
   }
 }

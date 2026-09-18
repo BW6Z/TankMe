@@ -8,10 +8,14 @@ export interface QualityPreset {
   shadows: boolean;
   shadowMapSize: number;
   particleScale: number;
-  fogFar: number;
-  vegetationScale: number;
-  antialias: boolean; // requires renderer recreation; applied on next launch otherwise
+  fogDensity: number;
+  antialias: boolean;
   nameSpritesRange: number;
+  /** post-processing chain (bloom + grade + AA) */
+  postFx: boolean;
+  bloomStrength: number;
+  /** grass tuft count multiplier */
+  vegetation: number;
 }
 
 export const QUALITY_PRESETS: Record<QualityLevel, QualityPreset> = {
@@ -21,10 +25,12 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualityPreset> = {
     shadows: false,
     shadowMapSize: 512,
     particleScale: 0.45,
-    fogFar: 300,
-    vegetationScale: 0.55,
+    fogDensity: 0.0032,
     antialias: false,
     nameSpritesRange: 90,
+    postFx: false,
+    bloomStrength: 0,
+    vegetation: 0.4,
   },
   medium: {
     label: 'MEDIUM',
@@ -32,10 +38,12 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualityPreset> = {
     shadows: true,
     shadowMapSize: 1024,
     particleScale: 1.0,
-    fogFar: 380,
-    vegetationScale: 0.85,
+    fogDensity: 0.0028,
     antialias: true,
     nameSpritesRange: 140,
+    postFx: true,
+    bloomStrength: 0.28,
+    vegetation: 0.7,
   },
   high: {
     label: 'HIGH',
@@ -43,9 +51,11 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualityPreset> = {
     shadows: true,
     shadowMapSize: 2048,
     particleScale: 1.4,
-    fogFar: 460,
-    vegetationScale: 1.0,
+    fogDensity: 0.0023,
     antialias: true,
     nameSpritesRange: 180,
+    postFx: true,
+    bloomStrength: 0.38,
+    vegetation: 1.0,
   },
 };

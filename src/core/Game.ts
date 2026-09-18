@@ -18,11 +18,14 @@ import { UI } from '../ui/UI';
 import { Minimap } from '../ui/Minimap';
 import { MatchManager } from '../match/MatchManager';
 import { PlayerController } from '../controllers/PlayerController';
+import { TankVisual } from '../tank/TankModel';
+import { TANKS } from '../config/tanks';
 import { QUALITY_PRESETS } from '../config/quality';
 import { MATCH_MODES } from '../config/match';
 import { bus, EV } from './Events';
 import { POWERUPS } from '../config/powerups';
 import { MAP_CONFIG } from '../config/map';
+import { heightAt } from '../world/Terrain';
 
 type State = 'boot' | 'menu' | 'battle' | 'paused' | 'results';
 
@@ -44,6 +47,9 @@ export class Game {
 
   private state: State = 'boot';
   private hadPointerLock = false;
+  private windUniform = { value: 0 };
+  private showroom = { x: -20, z: -30 };
+  private displayTank: TankVisual | null = null;
   private lastT = 0;
   private fpsSmooth = 60;
   private prevReload = 0;
@@ -62,6 +68,7 @@ export class Game {
       rematch: () => this.startBattle(this.settings.data.lastMode, this.settings.data.lastTank),
       leaveBattle: () => this.leaveBattle(),
       resume: () => this.resumeBattle(),
+      previewTank: (id) => this.setDisplayTank(id),
       qualityChanged: (q) => {
         this.sceneSetup.applyQuality(QUALITY_PRESETS[q]);
         this.effects.setQualityScale(QUALITY_PRESETS[q].particleScale);
@@ -77,6 +84,8 @@ export class Game {
 
     const mapData = buildMap(this.sceneSetup.scene, this.physics);
     this.coverPoints = mapData.coverPoints;
+    this.windUniform = mapData.windUniform;
+    this.showroom = mapData.showroom;
     this.ui.loading(0.55, 'Charting navigation grid…');
     await frame();
 
@@ -95,6 +104,8 @@ export class Game {
       this.physics, this.input, this.effects, this.settings,
     );
     this.effects.attachCamera(this.cameraRig.camera);
+    this.sceneSetup.attachCamera(this.cameraRig.camera);
+    this.setDisplayTank(this.settings.data.lastTank);
     this.playerController = new PlayerController(this.input, this.cameraRig);
     this.minimap = new Minimap(document.getElementById('minimap') as HTMLCanvasElement);
     this.ui.loading(0.9, 'Mustering tanks…');
@@ -206,6 +217,7 @@ export class Game {
     this.audio.battleStart();
     this.input.requestLock();
     this.prevReload = 0;
+    this.hideDisplayTank();
   }
 
   private pauseBattle(): void {
@@ -230,6 +242,7 @@ export class Game {
     this.input.exitLock();
     this.state = 'menu';
     this.ui.show('menu');
+    this.setDisplayTank(this.settings.data.lastTank);
   }
 
   // ---------------- main loop ----------------
@@ -243,13 +256,16 @@ export class Game {
     if (this.state === 'battle' && this.match) {
       this.updateBattle(dt);
     } else if (this.state !== 'paused') {
-      // menu-family screens keep a cinematic orbit over the map
-      this.cameraRig.updateMenu(dt);
+      // menu-family screens: cinematic showroom orbit
+      this.cameraRig.updateShowroom(dt, this.showroom);
+      this.windUniform.value += dt;
+      if (this.displayTank) this.displayTank.root.rotation.y += dt * 0.3;
       this.effects.update(dt);
-      this.sceneSetup.updateSunTarget(_sunFocus.set(0, 0, 0));
+      _sunFocus.set(this.showroom.x, 0, this.showroom.z);
+      this.sceneSetup.updateSunTarget(_sunFocus);
     }
 
-    this.sceneSetup.renderer.render(this.sceneSetup.scene, this.cameraRig.camera);
+    this.sceneSetup.render(this.cameraRig.camera);
     if (this.settings.data.showFps) this.ui.fps(this.fpsSmooth);
     this.input.endFrame();
   };
@@ -293,6 +309,26 @@ export class Game {
 
     // HUD
     if (player) {
+      // dynamic crosshair spread + gun alignment marker
+      const speedFrac = Math.min(1, Math.abs(player.speed) / player.spec.mobility.maxSpeed);
+      const spread = Math.min(1, speedFrac * 0.8 + (player.reloadLeft > 0 && player.reloadLeft < 1 ? 0.35 : 0));
+      let gunMarker: { x: number; y: number; behind: boolean } | null = null;
+      if (player.alive) {
+        const mp = _v3.set(0, 0, 0);
+        player.visual.muzzle.getWorldPosition(mp);
+        const dir = _v1.set(
+          Math.sin(player.turretYaw) * Math.cos(player.barrelPitch),
+          Math.sin(player.barrelPitch),
+          Math.cos(player.turretYaw) * Math.cos(player.barrelPitch),
+        );
+        mp.addScaledVector(dir, 28);
+        mp.project(this.cameraRig.camera);
+        gunMarker = { x: mp.x * 0.5 + 0.5, y: -mp.y * 0.5 + 0.5, behind: mp.z > 1 };
+      }
+      const at = this.cameraRig.aimedTarget;
+      const aimTarget = at && at.tank.team !== player.team && player.alive
+        ? { name: at.tank.name, hp: at.tank.hp, maxHp: at.tank.spec.maxHp, dist: at.dist }
+        : null;
       this.ui.hudFrame(dt, {
         spec: player.spec,
         hp: player.hp,
@@ -300,6 +336,7 @@ export class Game {
         reloadFrac: player.alive ? 1 - Math.max(0, player.reloadLeft) / player.spec.gun.reload : 0,
         zoomed: this.input.buttonDown(2),
         speedKmh: Math.abs(player.speed) * 3.6,
+        spread,
         buffs: [...player.buffs.entries()].map(([id, time]) => ({
           id, time, def: POWERUPS.find((d) => d.id === id)!,
         })),
@@ -309,6 +346,8 @@ export class Game {
         alive: player.alive,
         respawnTimer: player.respawnTimer,
         killedBy: player.killedBy,
+        gunMarker,
+        aimTarget,
       });
     }
     this.minimap.update(dt, match.tanks, player, this.powerups.list());
@@ -316,9 +355,39 @@ export class Game {
 
   private coverPoints: THREE.Vector3[] = [];
 
+  private setDisplayTank(tankId: string): void {
+    if (this.displayTank) {
+      this.displayTank.dispose(this.sceneSetup.scene);
+      this.displayTank = null;
+    }
+    // showroom fill light — only lives while the display vehicle does
+    if (!this.showroomLight) {
+      this.showroomLight = new THREE.PointLight(0xfff0d0, 60, 34, 1.6);
+      this.showroomLight.position.set(this.showroom.x, heightAt(this.showroom.x, this.showroom.z) + 7.5, this.showroom.z);
+      this.sceneSetup.scene.add(this.showroomLight);
+    }
+    this.showroomLight.visible = true;
+    const spec = TANKS[tankId];
+    if (!spec) return;
+    const v = new TankVisual(spec, 0xd8a03a, '', { nameplate: false });
+    v.root.position.set(this.showroom.x, heightAt(this.showroom.x, this.showroom.z) + 0.62, this.showroom.z);
+    this.sceneSetup.scene.add(v.root);
+    this.displayTank = v;
+  }
+
+  private hideDisplayTank(): void {
+    if (this.displayTank) {
+      this.displayTank.dispose(this.sceneSetup.scene);
+      this.displayTank = null;
+    }
+    if (this.showroomLight) this.showroomLight.visible = false;
+  }
+
+  private showroomLight: THREE.PointLight | null = null;
+
   /** debug/testing hook: render one frame and return it as a JPEG data URL */
   debugFrame(quality = 0.6): string {
-    this.sceneSetup.renderer.render(this.sceneSetup.scene, this.cameraRig.camera);
+    this.sceneSetup.render(this.cameraRig.camera);
     return this.sceneSetup.renderer.domElement.toDataURL('image/jpeg', quality);
   }
 
@@ -362,6 +431,7 @@ export class Game {
 
 const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
+const _v3 = new THREE.Vector3();
 const _sunFocus = new THREE.Vector3();
 
 function frame(): Promise<void> {

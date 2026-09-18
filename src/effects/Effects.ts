@@ -3,7 +3,7 @@
  * dynamic lights, floating damage numbers (DOM) and camera trauma.
  */
 import * as THREE from 'three';
-import { softCircleTexture, smokePuffTexture } from '../render/Textures';
+import { softCircleTexture, smokePuffTexture, starFlashTexture } from '../render/Textures';
 
 const SMOKE_N = 620;
 const SPARK_N = 820;
@@ -72,17 +72,20 @@ export class Effects {
 
   private smoke: Pool;
   private spark: Pool;
+  private flash: Pool;
   private rings: Ring[] = [];
   private nums: FloatNum[] = [];
   private numsLayer: HTMLElement;
   private explosionLight: THREE.PointLight;
   private muzzleLight: THREE.PointLight;
+  private debris: { mesh: THREE.Mesh; vel: THREE.Vector3; spin: THREE.Vector3; life: number }[] = [];
   private camera: THREE.Camera | null = null;
 
   constructor(scene: THREE.Scene, numsLayer: HTMLElement) {
     this.numsLayer = numsLayer;
     this.smoke = this.makePool(scene, SMOKE_N, smokePuffTexture(), THREE.NormalBlending);
     this.spark = this.makePool(scene, SPARK_N, softCircleTexture(), THREE.AdditiveBlending);
+    this.flash = this.makePool(scene, 40, starFlashTexture(), THREE.AdditiveBlending);
 
     for (let i = 0; i < 6; i++) {
       const mesh = new THREE.Mesh(
@@ -106,6 +109,16 @@ export class Effects {
       el.style.display = 'none';
       numsLayer.appendChild(el);
       this.nums.push({ el, active: false, pos: new THREE.Vector3(), life: 0 });
+    }
+
+    // pooled debris chunks for explosions
+    const dGeo = new THREE.TetrahedronGeometry(0.14);
+    const dMat = new THREE.MeshStandardMaterial({ color: 0x2c2a26, roughness: 1 });
+    for (let i = 0; i < 22; i++) {
+      const mesh = new THREE.Mesh(dGeo, dMat);
+      mesh.visible = false;
+      scene.add(mesh);
+      this.debris.push({ mesh, vel: new THREE.Vector3(), spin: new THREE.Vector3(), life: 0 });
     }
   }
 
@@ -178,6 +191,8 @@ export class Effects {
   explosion(pos: THREE.Vector3, big: boolean): void {
     const s = this.scale * (big ? 1.5 : 1);
     const cnt = (n: number) => Math.round(n * this.scale);
+    // core flash (star sprite, quick)
+    this.emit(this.flash, pos.x, pos.y, pos.z, 0, 0.4, 0, 0.14, (3.4 + (big ? 2 : 0)) * s, 3.2, 1, 0.86, 0.5, 1, 0, 0, 1);
     // fire burst
     for (let i = 0; i < cnt(46); i++) {
       const th = Math.random() * Math.PI * 2;
@@ -216,15 +231,50 @@ export class Effects {
         0.7 + Math.random() * 0.7, 0.5 * s, 0.8,
         0.45, 0.36, 0.24, 0.8, 14, 1.2, 1);
     }
+    this.spawnDebris(pos, big ? 9 : 6, s);
     this.ring(pos, 0xffb060, big ? 16 : 11, big ? 0.55 : 0.45);
     this.explosionLight.position.copy(pos).y += 1.5;
-    this.explosionLight.intensity = big ? 60 : 36;
+    this.explosionLight.intensity = big ? 70 : 42;
     this.explosionLight.distance = big ? 70 : 50;
+  }
+
+  private spawnDebris(pos: THREE.Vector3, n: number, s: number): void {
+    let spawned = 0;
+    for (const d of this.debris) {
+      if (spawned >= n) break;
+      if (d.life > 0) continue;
+      spawned++;
+      d.life = 1.1 + Math.random() * 0.6;
+      d.mesh.visible = true;
+      d.mesh.position.copy(pos);
+      const a = Math.random() * Math.PI * 2;
+      const sp = (7 + Math.random() * 9) * s;
+      d.vel.set(Math.cos(a) * sp, 5 + Math.random() * 9, Math.sin(a) * sp);
+      d.spin.set(Math.random() * 12, Math.random() * 12, Math.random() * 12);
+      d.mesh.scale.setScalar(0.7 + Math.random() * 1.6);
+      d.mesh.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+    }
+  }
+
+  /** engine exhaust wisp — cheap, culled by distance to camera */
+  exhaust(pos: THREE.Vector3, intensity: number): void {
+    if (this.camera && pos.distanceToSquared((this.camera as THREE.PerspectiveCamera).position) > 70 * 70) return;
+    if (Math.random() > 0.55 * this.scale) return;
+    const g = 0.5 + Math.random() * 0.1;
+    this.emit(this.smoke, pos.x, pos.y, pos.z,
+      (Math.random() - 0.5) * 0.7, 1.1 + Math.random() * 0.8, (Math.random() - 0.5) * 0.7,
+      0.7 + Math.random() * 0.5, 0.28 + intensity * 0.12, 0.9 + intensity * 0.5,
+      g, g, g, 0.3, -0.6, 1.6, 1.4);
   }
 
   muzzleFlash(pos: THREE.Vector3, dir: THREE.Vector3, big: boolean): void {
     const s = big ? 1.4 : 1;
     const n = Math.round((big ? 14 : 9) * this.scale);
+    // star flash
+    this.emit(this.flash, pos.x, pos.y, pos.z, 0, 0, 0, 0.09, (1.9 + (big ? 0.9 : 0)) * s, 2.4, 1, 0.88, 0.55, 1, 0, 0, 1);
+    // forward jet
+    this.emit(this.flash, pos.x + dir.x * 0.5, pos.y + dir.y * 0.5, pos.z + dir.z * 0.5,
+      dir.x * 8, dir.y * 8, dir.z * 8, 0.06, 1.3 * s, 2.6, 1, 0.9, 0.6, 0.95, 0, 0, 1);
     for (let i = 0; i < n; i++) {
       const jx = (Math.random() - 0.5) * 0.5, jy = (Math.random() - 0.5) * 0.5, jz = (Math.random() - 0.5) * 0.5;
       const sp = (10 + Math.random() * 18) * s;
@@ -233,8 +283,6 @@ export class Effects {
         0.08 + Math.random() * 0.12, (0.9 + Math.random() * 0.9) * s, 0,
         1, 0.8, 0.35, 0.95, 2, 3, 1);
     }
-    // bright core flash
-    this.emit(this.spark, pos.x, pos.y, pos.z, 0, 0, 0, 0.07, 2.6 * s, 2, 1, 0.9, 0.55, 1, 0, 0, 1);
     // muzzle smoke
     for (let i = 0; i < Math.round(7 * this.scale); i++) {
       const sp = (2 + Math.random() * 4) * s;
@@ -244,7 +292,7 @@ export class Effects {
         0.62, 0.6, 0.58, 0.4, -0.8, 1.6, 1.2);
     }
     this.muzzleLight.position.copy(pos);
-    this.muzzleLight.intensity = big ? 26 : 16;
+    this.muzzleLight.intensity = big ? 30 : 18;
   }
 
   hitFx(pos: THREE.Vector3, normal: THREE.Vector3, kind: 'dirt' | 'metal' | 'armor'): void {
@@ -362,9 +410,24 @@ export class Effects {
   update(dt: number): void {
     this.updatePool(this.smoke, dt);
     this.updatePool(this.spark, dt);
+    this.updatePool(this.flash, dt);
     this.trauma = Math.max(0, this.trauma - dt * 1.5);
     this.explosionLight.intensity = Math.max(0, this.explosionLight.intensity - dt * 220);
     this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 260);
+
+    // debris chunks
+    for (const d of this.debris) {
+      if (d.life <= 0) continue;
+      d.life -= dt;
+      if (d.life <= 0) { d.mesh.visible = false; continue; }
+      d.vel.y -= 22 * dt;
+      d.mesh.position.addScaledVector(d.vel, dt);
+      d.mesh.rotation.x += d.spin.x * dt;
+      d.mesh.rotation.y += d.spin.y * dt;
+      d.mesh.rotation.z += d.spin.z * dt;
+      // settle on ground
+      if (d.mesh.position.y < 0.1) { d.life = Math.min(d.life, 0.25); d.mesh.position.y = 0.1; d.vel.set(0, 0, 0); d.spin.multiplyScalar(0); }
+    }
 
     for (const r of this.rings) {
       if (r.life <= 0) { if (r.mesh.visible) r.mesh.visible = false; continue; }

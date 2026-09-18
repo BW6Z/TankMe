@@ -13,7 +13,10 @@ export class CameraRig {
   private dist = 13.5;
   private curFov = 56;
   aimPoint = new THREE.Vector3(0, 0, 100);
+  /** enemy tank currently under the crosshair (for the target info panel) */
+  aimedTarget: { tank: Tank; dist: number } | null = null;
   private time = 0;
+  private showroomYaw = 0;
 
   constructor(
     canvasAspect: () => number,
@@ -22,7 +25,7 @@ export class CameraRig {
     private effects: Effects,
     private settings: Settings,
   ) {
-    this.camera = new THREE.PerspectiveCamera(56, canvasAspect(), 0.3, 1000);
+    this.camera = new THREE.PerspectiveCamera(56, canvasAspect(), 0.3, 1100);
   }
 
   resize(aspect: number): void {
@@ -30,14 +33,19 @@ export class CameraRig {
     this.camera.updateProjectionMatrix();
   }
 
-  /** cinematic menu orbit */
-  updateMenu(dt: number): void {
+  /** cinematic showroom orbit for menu / deploy screens */
+  updateShowroom(dt: number, focus: { x: number; z: number }, radius = 12.5, height = 7.2): void {
     this.time += dt;
-    this.yaw += dt * 0.06;
-    const r = 105, h = 52;
-    this.camera.position.set(Math.sin(this.yaw) * r, h, Math.cos(this.yaw) * r);
-    this.camera.lookAt(0, 5, 0);
-    if (this.curFov !== 56) { this.curFov = 56; this.camera.fov = 56; this.camera.updateProjectionMatrix(); }
+    this.showroomYaw += dt * 0.14;
+    const bobY = Math.sin(this.time * 0.45) * 0.5;
+    const yaw = this.showroomYaw;
+    this.camera.position.set(
+      focus.x + Math.sin(yaw) * radius,
+      height + bobY,
+      focus.z + Math.cos(yaw) * radius,
+    );
+    this.camera.lookAt(focus.x, height * 0.42 + 0.6, focus.z);
+    if (this.curFov !== 46) { this.curFov = 46; this.camera.fov = 46; this.camera.updateProjectionMatrix(); }
   }
 
   updateBattle(dt: number, tank: Tank): void {
@@ -96,13 +104,18 @@ export class CameraRig {
     const segEnd = _v1.copy(origin).addScaledVector(_v3, bestT);
     const obHit = this.physics.segmentHit(origin, segEnd);
     if (obHit) bestT = Math.min(bestT, obHit.t * origin.distanceTo(segEnd));
-    // tank OBBs
+    // tank OBBs — remember which vehicle sits under the crosshair
+    let hitTank: Tank | null = null;
     const tanks = this.tanksProvider();
     for (const t of tanks) {
       if (!t.alive || t === tank) continue;
       const tHit = rayTank(origin, _v3, t, bestT);
-      if (tHit !== null && tHit < bestT) bestT = tHit;
+      if (tHit !== null && tHit < bestT) {
+        bestT = tHit;
+        hitTank = t;
+      }
     }
+    this.aimedTarget = hitTank ? { tank: hitTank, dist: bestT } : null;
     this.aimPoint.copy(origin).addScaledVector(_v3, Math.max(4, bestT - 0.5));
   }
 

@@ -9,7 +9,7 @@ import type { PowerupDef, PowerupId } from '../config/powerups';
 import type { Tank } from '../tank/Tank';
 import { heightAt } from '../world/Terrain';
 import { bus, EV } from '../core/Events';
-import { crateTexture, iconTexture } from '../render/Textures';
+import { iconTexture } from '../render/Textures';
 
 interface Crate {
   def: PowerupDef;
@@ -18,6 +18,9 @@ interface Crate {
   group: THREE.Group;
   life: number;
   spin: number;
+  core: THREE.Mesh;
+  halo: THREE.Mesh;
+  pulse: THREE.Mesh;
 }
 
 export class PowerupSystem {
@@ -25,7 +28,6 @@ export class PowerupSystem {
   private occupied = new Set<number>();
   private timer: number = POWERUP_CONFIG.firstDelay;
   private group = new THREE.Group();
-  private texCache = new Map<PowerupId, THREE.Texture>();
   private iconCache = new Map<PowerupId, THREE.Texture>();
   private rngState = 12345;
 
@@ -64,15 +66,24 @@ export class PowerupSystem {
       const c = this.active[i];
       c.life -= dt;
       c.spin += dt;
-      c.group.children[0].rotation.y = c.spin * 1.4;
-      c.group.children[0].position.y = 0.95 + Math.sin(c.spin * 2.2) * 0.18;
-      const icon = c.group.children[2] as THREE.Sprite;
-      icon.position.y = 2.9 + Math.sin(c.spin * 2.2 + 1) * 0.22;
+      c.group.children[0].rotation.y = c.spin * 0.9;
+      const crateGroup = c.group.children[0] as THREE.Group;
+      crateGroup.position.y = Math.sin(c.spin * 2.1) * 0.16;
+      c.core.rotation.y = c.spin * 2.2;
+      c.core.rotation.x = c.spin * 1.4;
+      const pulse = 0.75 + Math.sin(c.spin * 4) * 0.25;
+      (c.halo.material as THREE.MeshBasicMaterial).opacity = 0.55 + pulse * 0.3;
+      c.halo.rotation.z = c.spin * 0.8;
+      const pr = 1 + ((c.spin * 0.7) % 1) * 1.6;
+      c.pulse.scale.setScalar(pr);
+      (c.pulse.material as THREE.MeshBasicMaterial).opacity = 0.45 * (1 - ((c.spin * 0.7) % 1));
+      const icon = c.group.children[3] as THREE.Sprite;
+      icon.position.y = 2.75 + Math.sin(c.spin * 2.1 + 1) * 0.2;
       // blink when about to expire
-      const beam = c.group.children[1] as THREE.Mesh;
+      const beam = c.group.children[2] as THREE.Mesh;
       if (c.life < 5) {
         const blink = Math.sin(c.life * 7) > 0 ? 1 : 0.25;
-        (beam.material as THREE.MeshBasicMaterial).opacity = 0.16 * blink;
+        (beam.material as THREE.MeshBasicMaterial).opacity = 0.13 * blink;
       }
       if (c.life <= 0) {
         this.remove(i);
@@ -104,21 +115,54 @@ export class PowerupSystem {
     const group = new THREE.Group();
     const y = heightAt(pt.x, pt.z);
 
-    // crate
-    let tex = this.texCache.get(def.id);
-    if (!tex) { tex = crateTexture(def.cssColor); this.texCache.set(def.id, tex); }
-    const crate = new THREE.Mesh(
-      new THREE.BoxGeometry(1.5, 1.5, 1.5),
-      new THREE.MeshStandardMaterial({ map: tex, emissive: def.color, emissiveIntensity: 0.22, roughness: 0.6 }),
-    );
-    crate.castShadow = true;
-    crate.position.y = 0.95;
+    // --- supply crate: beveled box + glowing core + halo ring ---
+    const crateMat = new THREE.MeshStandardMaterial({ color: 0x3a4046, roughness: 0.55, metalness: 0.5 });
+    const frameMat = new THREE.MeshStandardMaterial({ color: def.color, emissive: def.color, emissiveIntensity: 0.9, roughness: 0.4, metalness: 0.3 });
+    const coreMat = new THREE.MeshStandardMaterial({ color: 0x101410, emissive: def.color, emissiveIntensity: 2.6, roughness: 0.3 });
+    const crate = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.95, 1.15), crateMat);
+    body.position.y = 0.78;
+    crate.add(body);
+    // angled corner plates
+    for (const [dx, dz, ry] of [[1, 1, Math.PI / 4], [-1, 1, -Math.PI / 4], [1, -1, -Math.PI / 4], [-1, -1, Math.PI / 4]] as const) {
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.52, 1.06, 0.1), frameMat);
+      plate.position.set(dx * 0.44, 0.78, dz * 0.44);
+      plate.rotation.y = ry;
+      crate.add(plate);
+    }
+    // top frame
+    const top = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.09, 1.2), frameMat);
+    top.position.y = 1.28;
+    crate.add(top);
+    const bottom = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.09, 1.2), frameMat);
+    bottom.position.y = 0.3;
+    crate.add(bottom);
+    // glowing core
+    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 0), coreMat);
+    core.position.y = 0.79;
+    crate.add(core);
     group.add(crate);
 
-    // light beam
+    // halo ring + ground pulse ring
+    const halo = new THREE.Mesh(
+      new THREE.TorusGeometry(0.95, 0.045, 8, 32),
+      new THREE.MeshBasicMaterial({ color: def.color, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    halo.rotation.x = Math.PI / 2;
+    halo.position.y = 0.79;
+    group.add(halo);
+    const pulse = new THREE.Mesh(
+      new THREE.RingGeometry(0.9, 1.05, 32),
+      new THREE.MeshBasicMaterial({ color: def.color, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    pulse.rotation.x = -Math.PI / 2;
+    pulse.position.y = 0.12;
+    group.add(pulse);
+
+    // light shaft
     const beam = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.55, 1.0, 30, 10, 1, true),
-      new THREE.MeshBasicMaterial({ color: def.color, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+      new THREE.CylinderGeometry(0.42, 0.9, 30, 10, 1, true),
+      new THREE.MeshBasicMaterial({ color: def.color, transparent: true, opacity: 0.13, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
     );
     beam.position.y = 15;
     group.add(beam);
@@ -127,14 +171,17 @@ export class PowerupSystem {
     let iconTex = this.iconCache.get(def.id);
     if (!iconTex) { iconTex = iconTexture(def.id, def.cssColor); this.iconCache.set(def.id, iconTex); }
     const icon = new THREE.Sprite(new THREE.SpriteMaterial({ map: iconTex, transparent: true, depthWrite: false }));
-    icon.scale.set(1.5, 1.5, 1);
-    icon.position.y = 2.9;
+    icon.scale.set(1.35, 1.35, 1);
+    icon.position.y = 2.75;
     group.add(icon);
 
     group.position.set(pt.x, y, pt.z);
     this.group.add(group);
 
-    const crate0: Crate = { def, pointIdx: idx, pos: new THREE.Vector3(pt.x, y, pt.z), group, life: POWERUP_CONFIG.lifetime, spin: this.rng() * 6 };
+    const crate0: Crate = {
+      def, pointIdx: idx, pos: new THREE.Vector3(pt.x, y, pt.z), group,
+      life: POWERUP_CONFIG.lifetime, spin: this.rng() * 6, core, halo, pulse,
+    };
     this.active.push(crate0);
     this.occupied.add(idx);
     this.effects.powerupFx(crate0.pos.clone().setY(y + 1), def.color);

@@ -15,7 +15,7 @@ export const MAP_HALF = MAP_SIZE / 2;
 
 export interface BuildingDef {
   x: number; z: number; w: number; d: number; h: number;
-  style?: 'brick' | 'concrete' | 'barn';
+  style?: 'house' | 'block' | 'barn' | 'industrial' | 'ruin';
 }
 
 export interface WallDef {
@@ -71,22 +71,26 @@ export const MAP_CONFIG = {
 
   buildings: [
     // ---- east village grid ----
-    { x: 64, z: -30, w: 16, d: 18, h: 9, style: 'brick' },
-    { x: 64, z: 18, w: 14, d: 20, h: 7, style: 'concrete' },
-    { x: 88, z: -20, w: 16, d: 16, h: 11, style: 'concrete' },
-    { x: 88, z: 22, w: 18, d: 14, h: 8, style: 'brick' },
-    { x: 112, z: -26, w: 14, d: 20, h: 9, style: 'barn' },
-    { x: 112, z: 14, w: 16, d: 16, h: 12, style: 'concrete' },
-    { x: 134, z: -8, w: 16, d: 24, h: 8, style: 'brick' },
+    { x: 64, z: -30, w: 16, d: 18, h: 9, style: 'house' },
+    { x: 64, z: 18, w: 14, d: 20, h: 7, style: 'block' },
+    { x: 88, z: -20, w: 16, d: 16, h: 11, style: 'block' },
+    { x: 88, z: 22, w: 18, d: 14, h: 8, style: 'house' },
+    { x: 112, z: -26, w: 14, d: 20, h: 9, style: 'house' },
+    { x: 112, z: 14, w: 16, d: 16, h: 12, style: 'block' },
+    { x: 134, z: -8, w: 16, d: 24, h: 8, style: 'house' },
     { x: 134, z: 32, w: 18, d: 16, h: 7, style: 'barn' },
     { x: 76, z: -52, w: 18, d: 12, h: 7, style: 'barn' },
-    { x: 118, z: 52, w: 20, d: 12, h: 8, style: 'concrete' },
-    { x: 88, z: 50, w: 14, d: 12, h: 10, style: 'brick' },
+    { x: 118, z: 52, w: 20, d: 12, h: 8, style: 'block' },
+    { x: 88, z: 50, w: 14, d: 12, h: 10, style: 'house' },
+    { x: 150, z: 66, w: 26, d: 18, h: 10, style: 'industrial' },
+    { x: 52, z: -52, w: 12, d: 10, h: 6, style: 'ruin' },
     // ---- outposts near approaches ----
-    { x: 34, z: 92, w: 16, d: 12, h: 8, style: 'concrete' },
-    { x: -30, z: -92, w: 14, d: 12, h: 8, style: 'brick' },
+    { x: 34, z: 92, w: 16, d: 12, h: 8, style: 'block' },
+    { x: -30, z: -92, w: 14, d: 12, h: 8, style: 'house' },
     { x: -58, z: 96, w: 12, d: 12, h: 7, style: 'barn' },
-    { x: 56, z: -98, w: 12, d: 12, h: 7, style: 'barn' },
+    { x: 56, z: -98, w: 12, d: 12, h: 7, style: 'ruin' },
+    { x: -108, z: -66, w: 14, d: 10, h: 7, style: 'ruin' },
+    { x: -120, z: 60, w: 12, d: 12, h: 6, style: 'barn' },
   ] as BuildingDef[],
 
   walls: [

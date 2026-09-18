@@ -71,6 +71,7 @@ export class MatchManager {
       hitFx: (p, n, k) => deps.effects.hitFx(p, n, k),
       tankSmoke: (p, heavy) => deps.effects.tankSmoke(p, heavy),
       pickupFx: (p, c) => deps.effects.powerupFx(p, c),
+      exhaust: (p, i) => deps.effects.exhaust(p, i),
       addTrauma: (a) => deps.effects.addTrauma(a),
       playFire: (p, big) => deps.audio.fire(p, big),
       playExplosion: (p, big) => deps.audio.explosion(p, big),

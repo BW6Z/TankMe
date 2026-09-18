@@ -76,6 +76,15 @@ export function heightAt(x: number, z: number): number {
   const vFlat = Math.exp(-(dvx * dvx + dvz * dvz) / (MAP_CONFIG.village.radius * MAP_CONFIG.village.radius));
   h = h * (1 - vFlat * 0.85) + 1.2 * vFlat * 0.85;
 
+  // field workshop pad (garage showroom)
+  const dsx = x + 20, dsz = z + 30;
+  const padFlat = Math.exp(-(dsx * dsx + dsz * dsz) / 320);
+  h = h * (1 - padFlat * 0.92) + 1.7 * padFlat * 0.92;
+
+  // hollow (shelled ground) and a gentle knoll for mid-field layers
+  h -= 3.0 * Math.exp(-((x - 55) * (x - 55)) / 900 - ((z + 55) * (z + 55)) / 900);
+  h += 2.4 * Math.exp(-((x + 30) * (x + 30)) / 640 - ((z - 20) * (z - 20)) / 640);
+
   // grade road corridors toward large-scale terrain
   const rd = roadDistance(x, z);
   if (rd < 9) {

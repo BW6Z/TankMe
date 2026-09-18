@@ -7,99 +7,143 @@
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
 </head>
 <body>
+  <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-tank" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M7 9h7l2 3h4v2H5l-2-1v-2l4-2zm1-3h5l1 2H7l1-2zM3 16h18a2 2 0 0 1-2 3H6a3 3 0 0 1-3-3z"/>
+    </symbol>
+    <symbol id="i-shell" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M12 2c2 2.5 3 5 3 8v6h-6v-6c0-3 1-5.5 3-8zM9 17h6l-1 4h-4l-1-4z"/>
+    </symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M12 2l8 3v6c0 5-3.5 9.3-8 11-4.5-1.7-8-6-8-11V5l8-3zm0 3.2L7 7v4.4c0 3.6 2.2 6.8 5 8.2 2.8-1.4 5-4.6 5-8.2V7l-5-1.8z"/>
+    </symbol>
+    <symbol id="i-wrench" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M21 6.5a5.5 5.5 0 0 1-7.8 5L7 17.7a2.1 2.1 0 0 1-3-3l6.2-6.2A5.5 5.5 0 0 1 17.5 1l-3 3 1.5 3 3 1.5 3-3c.3.6 0 .7 0 1z"/>
+    </symbol>
+    <symbol id="i-cloak" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M2 12s3.5-6 10-6c1.8 0 3.4.4 4.7 1L5.9 17.8C3.4 16.2 2 12 2 12zm20 0s-3.5 6-10 6c-1.8 0-3.4-.4-4.7-1L18.1 6.2C20.6 7.8 22 12 22 12zM4 20L20 4l1.4 1.4L5.4 21.4 4 20z"/>
+    </symbol>
+    <symbol id="i-skull" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M12 2a8 8 0 0 0-8 8c0 2.9 1.6 5.5 4 6.9V20a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-3.1c2.4-1.4 4-4 4-6.9a8 8 0 0 0-8-8zM9 12a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm6 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
+    </symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M9 5l7 7-7 7-1.5-1.5L13 12 7.5 6.5 9 5z"/>
+    </symbol>
+    <symbol id="i-nitro" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/>
+    </symbol>
+  </svg>
+
   <canvas id="game-canvas"></canvas>
 
   <div id="ui">
     <!-- ============ LOADING ============ -->
     <div id="loading-screen" class="screen visible">
-      <div class="loading-logo">TANK<span>ME</span></div>
-      <div class="loading-bar"><div id="loading-fill"></div></div>
-      <div class="loading-tip" id="loading-tip">Preparing battlefield…</div>
+      <div class="load-center">
+        <div class="loading-logo">TANK<span>ME</span></div>
+        <div class="load-map" id="load-map-name">IRONRIDGE CROSSING</div>
+        <div class="loading-bar"><div id="loading-fill"></div></div>
+        <div class="loading-tip" id="loading-tip">Preparing battlefield…</div>
+      </div>
     </div>
 
     <!-- ============ MAIN MENU ============ -->
     <div id="menu-screen" class="screen">
-      <div class="menu-gradient"></div>
-      <div class="menu-content">
-        <div class="menu-logo-wrap">
+      <div class="menu-scrim"></div>
+      <div class="menu-left">
+        <div class="logo-block">
           <h1 class="logo">TANK<span>ME</span></h1>
           <div class="menu-subline">3D TEAM TANK BATTLES</div>
         </div>
-        <div class="menu-buttons">
-          <button id="btn-battle" class="btn btn-primary">▶&nbsp; BATTLE</button>
-          <button id="btn-howto" class="btn">HOW TO PLAY</button>
-          <button id="btn-settings" class="btn">SETTINGS</button>
-        </div>
+        <nav class="menu-buttons">
+          <button id="btn-battle" class="btn-menu primary">
+            <svg class="bi"><use href="#i-tank"/></svg><span>BATTLE</span><svg class="bi chev"><use href="#i-chev"/></svg>
+          </button>
+          <button id="btn-howto" class="btn-menu">
+            <svg class="bi"><use href="#i-shell"/></svg><span>HOW TO PLAY</span><svg class="bi chev"><use href="#i-chev"/></svg>
+          </button>
+          <button id="btn-settings" class="btn-menu">
+            <svg class="bi"><use href="#i-wrench"/></svg><span>SETTINGS</span><svg class="bi chev"><use href="#i-chev"/></svg>
+          </button>
+        </nav>
         <div class="menu-footer">
-          <span>v0.1 · offline AI combat</span>
-          <span>Ironridge Crossing · Team Deathmatch</span>
+          <span>v0.2 · offline AI combat</span>
+          <span>Team Deathmatch · Ironridge Crossing</span>
         </div>
       </div>
     </div>
 
     <!-- ============ DEPLOY ============ -->
     <div id="deploy-screen" class="screen">
-      <div class="panel-screen">
-        <div class="screen-header">
-          <button id="btn-deploy-back" class="btn btn-small">← BACK</button>
-          <h2 class="screen-title">DEPLOY</h2>
-          <div class="header-spacer"></div>
+      <div class="deploy-scrim"></div>
+      <div class="deploy-left">
+        <div class="screen-header slim">
+          <button id="btn-deploy-back" class="btn-ghost">← BACK</button>
+          <h2 class="screen-title left">DEPLOY</h2>
         </div>
-        <div class="deploy-body">
-          <div class="deploy-col">
-            <h3 class="col-label">BATTLE MODE</h3>
-            <div id="mode-cards"></div>
-            <h3 class="col-label">BRIEFING</h3>
-            <div class="briefing-box">
-              Team Deathmatch on <b>Ironridge Crossing</b>. Destroy enemy armor to score
-              for your team. Higher score when the timer ends wins. Pick up supply drops
-              for combat advantages.
-            </div>
-          </div>
-          <div class="deploy-col">
-            <h3 class="col-label">SELECT VEHICLE</h3>
-            <div id="tank-cards"></div>
-            <div id="deploy-preview"></div>
+        <div class="deploy-scroll">
+          <h3 class="col-label">BATTLE MODE</h3>
+          <div id="mode-cards"></div>
+          <h3 class="col-label">SELECT VEHICLE</h3>
+          <div id="tank-cards"></div>
+          <h3 class="col-label">PERFORMANCE</h3>
+          <div id="deploy-preview"></div>
+          <div class="briefing-box">
+            Team Deathmatch on <b>Ironridge Crossing</b>. Destroy enemy armor to score
+            for your team. Higher score when the timer ends wins. Grab supply drops
+            on the marked points for a combat edge.
           </div>
         </div>
-        <button id="btn-deploy" class="btn btn-primary btn-deploy">DEPLOY →</button>
+        <button id="btn-deploy" class="btn-menu primary deploy-go">
+          <svg class="bi"><use href="#i-nitro"/></svg><span>DEPLOY</span><svg class="bi chev"><use href="#i-chev"/></svg>
+        </button>
       </div>
+      <div class="deploy-hint">◀ vehicle preview</div>
     </div>
 
     <!-- ============ SETTINGS ============ -->
     <div id="settings-screen" class="screen">
       <div class="panel-screen panel-narrow">
         <div class="screen-header">
-          <button id="btn-settings-back" class="btn btn-small">← BACK</button>
+          <button id="btn-settings-back" class="btn-ghost">← BACK</button>
           <h2 class="screen-title">SETTINGS</h2>
           <div class="header-spacer"></div>
         </div>
         <div class="settings-body">
-          <div class="setting-row">
-            <span class="setting-label">GRAPHICS QUALITY</span>
-            <div id="quality-buttons" class="seg-buttons"></div>
-          </div>
-          <div class="setting-row">
-            <span class="setting-label">MOUSE SENSITIVITY</span>
-            <div class="setting-control">
-              <input type="range" id="sensitivity" min="20" max="200" value="100" />
-              <span id="sensitivity-val" class="setting-val">1.00</span>
+          <div class="setting-group">
+            <div class="group-label">GRAPHICS</div>
+            <div class="setting-row">
+              <span class="setting-label">QUALITY PRESET</span>
+              <div id="quality-buttons" class="seg-buttons"></div>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">SHOW FPS</span>
+              <button id="toggle-fps" class="btn-toggle">OFF</button>
             </div>
           </div>
-          <div class="setting-row">
-            <span class="setting-label">MASTER VOLUME</span>
-            <div class="setting-control">
-              <input type="range" id="volume" min="0" max="100" value="80" />
-              <span id="volume-val" class="setting-val">80%</span>
+          <div class="setting-group">
+            <div class="group-label">CONTROLS</div>
+            <div class="setting-row">
+              <span class="setting-label">MOUSE SENSITIVITY</span>
+              <div class="setting-control">
+                <input type="range" id="sensitivity" min="20" max="200" value="100" />
+                <span id="sensitivity-val" class="setting-val">1.00</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">CAMERA SHAKE</span>
+              <button id="toggle-shake" class="btn-toggle">ON</button>
             </div>
           </div>
-          <div class="setting-row">
-            <span class="setting-label">CAMERA SHAKE</span>
-            <button id="toggle-shake" class="btn btn-small btn-toggle">ON</button>
-          </div>
-          <div class="setting-row">
-            <span class="setting-label">SHOW FPS</span>
-            <button id="toggle-fps" class="btn btn-small btn-toggle">OFF</button>
+          <div class="setting-group">
+            <div class="group-label">AUDIO</div>
+            <div class="setting-row">
+              <span class="setting-label">MASTER VOLUME</span>
+              <div class="setting-control">
+                <input type="range" id="volume" min="0" max="100" value="80" />
+                <span id="volume-val" class="setting-val">80%</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -109,7 +153,7 @@
     <div id="howto-screen" class="screen">
       <div class="panel-screen panel-narrow">
         <div class="screen-header">
-          <button id="btn-howto-back" class="btn btn-small">← BACK</button>
+          <button id="btn-howto-back" class="btn-ghost">← BACK</button>
           <h2 class="screen-title">HOW TO PLAY</h2>
           <div class="header-spacer"></div>
         </div>
@@ -127,7 +171,7 @@
             <h4>FIELD MANUAL</h4>
             <ul>
               <li><b>Armor matters.</b> Frontal armor is thickest. Hit sides and especially the rear for far more damage.</li>
-              <li><b>Angle your hull.</b> Facing the enemy head-on makes their shots bounce weaker.</li>
+              <li><b>Angle your hull.</b> Facing the enemy head-on makes their shots weaker.</li>
               <li><b>Use cover.</b> Poke, shoot, hide. Reload behind buildings and rocks.</li>
               <li><b>Supply drops</b> fall on marked points: repair, shield, damage boost and cloaking.</li>
               <li><b>Teamwork wins.</b> Fight with your team — a lone tank is an easy kill.</li>
@@ -139,6 +183,12 @@
 
     <!-- ============ HUD ============ -->
     <div id="hud" class="screen">
+      <!-- target info -->
+      <div id="target-info">
+        <div class="ti-top"><span id="ti-name">—</span><span id="ti-dist">0 m</span></div>
+        <div class="ti-hp"><div id="ti-hp-fill"></div></div>
+      </div>
+
       <!-- top center score bar -->
       <div id="scorebar">
         <div class="team-block team-a">
@@ -159,7 +209,11 @@
       <div id="killfeed"></div>
 
       <!-- minimap -->
-      <div id="minimap-wrap"><canvas id="minimap" width="200" height="200"></canvas></div>
+      <div id="minimap-wrap">
+        <canvas id="minimap" width="200" height="200"></canvas>
+        <div class="mm-frame"></div>
+        <div class="mm-n">N</div>
+      </div>
 
       <!-- crosshair -->
       <div id="crosshair">
@@ -170,6 +224,7 @@
         <div class="ch-tick ch-r"></div>
         <div id="crosshair-dot"></div>
       </div>
+      <div id="gun-marker"></div>
       <div id="hitmarker">
         <div class="hm hm1"></div><div class="hm hm2"></div>
         <div class="hm hm3"></div><div class="hm hm4"></div>
@@ -182,15 +237,15 @@
       <div id="vehicle-panel">
         <div id="buff-bar"></div>
         <div id="vehicle-frame">
-          <div id="hud-tank-name">VANGUARD</div>
-          <div id="hp-bar"><div id="hp-fill"></div></div>
+          <div id="hud-tank-name"><b>VANGUARD</b><span>MEDIUM</span></div>
+          <div id="hp-bar"><div id="hp-fill"></div><div id="hp-ticks"></div></div>
           <div id="hp-num">950 / 950</div>
         </div>
         <div id="reload-text">READY</div>
       </div>
 
       <!-- speed -->
-      <div id="speed-hud">0 km/h</div>
+      <div id="speed-hud">0 <span>km/h</span></div>
 
       <!-- misc -->
       <div id="pickup-banner"></div>
@@ -203,7 +258,7 @@
       <!-- respawn overlay -->
       <div id="respawn-overlay">
         <div class="respawn-title">VEHICLE DESTROYED</div>
-        <div id="respawn-killer">destroyed by CRIMSON-3</div>
+        <div id="respawn-killer">destroyed by —</div>
         <div class="respawn-count-wrap">RESPAWN IN <span id="respawn-count">5</span></div>
       </div>
     </div>
@@ -215,28 +270,29 @@
     <div id="pause-screen" class="screen">
       <div class="pause-panel">
         <h2 class="pause-title">PAUSED</h2>
-        <button id="btn-resume" class="btn btn-primary">RESUME</button>
-        <button id="btn-pause-settings" class="btn">SETTINGS</button>
-        <button id="btn-pause-howto" class="btn">HOW TO PLAY</button>
-        <button id="btn-leave" class="btn btn-danger">LEAVE BATTLE</button>
+        <button id="btn-resume" class="btn-menu primary"><span>RESUME</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
+        <button id="btn-pause-settings" class="btn-menu"><span>SETTINGS</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
+        <button id="btn-pause-howto" class="btn-menu"><span>HOW TO PLAY</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
+        <button id="btn-leave" class="btn-menu danger"><span>LEAVE BATTLE</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
       </div>
     </div>
 
     <!-- ============ RESULTS ============ -->
     <div id="results-screen" class="screen">
+      <div class="results-backdrop"></div>
       <div class="results-panel">
         <div id="results-banner">VICTORY</div>
         <div id="results-scores">
           <div class="team-block team-a"><span class="team-name" id="results-team-a">COBALT</span><span class="team-score" id="results-score-a">0</span></div>
-          <div id="results-vs">—</div>
+          <div id="results-vs">FINAL</div>
           <div class="team-block team-b"><span class="team-score" id="results-score-b">0</span><span class="team-name" id="results-team-b">CRIMSON</span></div>
         </div>
         <div id="player-stats"></div>
         <h4 class="scoreboard-label">BATTLE REPORT</h4>
         <div id="scoreboard-wrap"><table id="scoreboard"></table></div>
         <div class="results-buttons">
-          <button id="btn-rematch" class="btn btn-primary">REMATCH</button>
-          <button id="btn-results-menu" class="btn">MAIN MENU</button>
+          <button id="btn-rematch" class="btn-menu primary"><span>REMATCH</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
+          <button id="btn-results-menu" class="btn-menu"><span>MAIN MENU</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
         </div>
       </div>
     </div>
