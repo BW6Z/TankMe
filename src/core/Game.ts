@@ -23,6 +23,7 @@ import { TANKS } from '../config/tanks';
 import { QUALITY_PRESETS } from '../config/quality';
 import { MATCH_MODES } from '../config/match';
 import { bus, EV } from './Events';
+import { verdictLabel } from '../combat/ArmorMath';
 import { POWERUPS } from '../config/powerups';
 import { MAP_CONFIG } from '../config/map';
 import { heightAt } from '../world/Terrain';
@@ -137,9 +138,13 @@ export class Game {
   // ---------------- event wiring ----------------
 
   private wireEvents(): void {
-    bus.on(EV.combatHit, ({ shooter, victim, amount, crit, point }: any) => {
+    bus.on(EV.armorPenetrated, ({ shooter, victim, amount, crit, module, point }: any) => {
       if (shooter?.isPlayer && amount > 0) {
         this.ui.hitmarker(crit);
+        this.ui.combatFeedback(
+          `ARMOR PENETRATED −${Math.round(amount)}`,
+          crit ? 'crit' : 'good',
+        );
         this.effects.floatDamage(point, amount, crit ? 'crit' : 'normal');
         this.audio.hit(point);
       }
@@ -158,12 +163,34 @@ export class Game {
       }
     });
 
+    bus.on(EV.armorBlocked, ({ shooter, victim, reason }: any) => {
+      if (shooter?.isPlayer) {
+        this.ui.hitmarker(false);
+        this.ui.combatFeedback(reason === 'ricochet' ? 'RICOCHET' : 'NO PENETRATION', 'block');
+      }
+      if (victim.isPlayer && shooter) {
+        this.ui.combatFeedback(reason === 'ricochet' ? 'RICOCHET OFF YOUR ARMOR' : 'ARMOR BLOCKED', 'good');
+      }
+    });
+
+    bus.on(EV.criticalHit, ({ shooter, module }: any) => {
+      if (shooter?.isPlayer && module) this.ui.combatFeedback('CRITICAL HIT', 'crit');
+    });
+
+    bus.on(EV.moduleDamaged, ({ tank, module }: any) => {
+      if (tank.isPlayer) this.ui.combatFeedback(`YOUR ${String(module).toUpperCase()} DAMAGED`, 'bad');
+    });
+
     bus.on(EV.tankDeath, ({ victim, attacker }: any) => {
       this.ui.killfeed(
         attacker ? attacker.name : 'Battlefield',
         attacker ? attacker.team : (1 - victim.team),
         victim.name, victim.team,
       );
+      // center-screen kill message for the player's own kills
+      if (attacker?.isPlayer && victim.team !== attacker.team) {
+        this.ui.killMessage('ENEMY DESTROYED', victim.name);
+      }
       const player = this.match?.playerTank;
       if (player) {
         const d = player.pos.distanceTo(victim.pos);
@@ -326,20 +353,37 @@ export class Game {
         gunMarker = { x: mp.x * 0.5 + 0.5, y: -mp.y * 0.5 + 0.5, behind: mp.z > 1 };
       }
       const at = this.cameraRig.aimedTarget;
+      const az = this.cameraRig.aimAnalysis;
+      const VERDICT_COLOR: Record<string, string> = {
+        green: '#7ce06a', yellow: '#e8d24a', orange: '#f09030', red: '#ff4d3d',
+      };
       const aimTarget = at && at.tank.team !== player.team && player.alive
-        ? { name: at.tank.name, hp: at.tank.hp, maxHp: at.tank.spec.maxHp, dist: at.dist }
+        ? {
+            name: at.tank.name, hp: at.tank.hp, maxHp: at.tank.spec.maxHp, dist: at.dist,
+            zone: az ? az.zoneLabel : '',
+          }
+        : null;
+      const armorViz = az && at && at.tank.team !== player.team && player.alive
+        ? {
+            color: VERDICT_COLOR[az.verdict],
+            label: verdictLabel(az.verdict),
+            zone: az.zoneLabel,
+            eff: az.effArmor,
+          }
         : null;
       this.ui.hudFrame(dt, {
         spec: player.spec,
         hp: player.hp,
         maxHp: player.spec.maxHp,
         reloadFrac: player.alive ? 1 - Math.max(0, player.reloadLeft) / player.spec.gun.reload : 0,
-        zoomed: this.input.buttonDown(2),
+        reloadLeft: Math.max(0, player.reloadLeft),
+        zoomed: this.cameraRig.zoomFrac > 0.5,
         speedKmh: Math.abs(player.speed) * 3.6,
         spread,
         buffs: [...player.buffs.entries()].map(([id, time]) => ({
           id, time, def: POWERUPS.find((d) => d.id === id)!,
         })),
+        modules: (['track', 'engine', 'gun'] as const).filter((m) => player.modules[m] > 0),
         scoreA: match.scores[0],
         scoreB: match.scores[1],
         timeLeft: match.timeLeft,
@@ -348,6 +392,7 @@ export class Game {
         killedBy: player.killedBy,
         gunMarker,
         aimTarget,
+        armorViz,
       });
     }
     this.minimap.update(dt, match.tanks, player, this.powerups.list());
@@ -434,6 +479,7 @@ const _v2 = new THREE.Vector3();
 const _v3 = new THREE.Vector3();
 const _sunFocus = new THREE.Vector3();
 
+/** boot step delay — setTimeout so hidden tabs still finish booting */
 function frame(): Promise<void> {
-  return new Promise((r) => requestAnimationFrame(() => r()));
+  return new Promise((r) => setTimeout(r, 24));
 }

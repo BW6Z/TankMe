@@ -1,104 +1,292 @@
-# TankMe 🎯🛡️
+# TankMe
 
-**一款运行于浏览器的 3D 团队坦克战斗游戏。** 受 Tanki Online 的快节奏地图物资机制与 World of Tanks Blitz 的坦克战斗手感启发，所有代码、模型、贴图、音效均为程序化生成，**100% 原创**。
+**A browser-based 3D team tank battle game — built with Blender-modeled vehicles, procedural PBR assets and a custom Three.js engine. / 一款浏览器 3D 团队坦克对战游戏——坦克由 Blender 建模，资产程序化生成，基于自研 Three.js 引擎。**
 
-![tech](https://img.shields.io/badge/Vite-TypeScript%20%2B%20Three.js-blue)
+All assets (models, textures, audio, map) are original and generated in-project. No assets from any commercial game are used. Historical vehicles serve only as public-domain *design references*.
+所有资产（模型、贴图、音效、地图）均为项目内原创生成，不使用任何商业游戏素材。历史车辆仅作为公有领域的*设计参考*。
 
-## 快速开始
+---
 
-```bash
-npm install
-npm run dev        # 开发服务器 → http://localhost:5173
-npm run build      # 生产构建 → dist/
-npm run preview    # 预览生产构建
-npm run typecheck  # TypeScript 检查
+## English
+
+### 1. Project Overview / 项目介绍
+TankMe is a fast, readable team deathmatch tank game running entirely in the browser. Two teams of AI-driven (and one player-driven) tanks fight on "Ironridge Crossing" — a tactically structured map with a central ridge, a walled village, industrial ruins and flanking routes.
+
+### 2. Features / 功能
+- 7v7 and 14v14 Team Deathmatch on one shared map
+- 8 original vehicles in 4 classes with 3-level LOD GLB models
+- 6-zone armor model (front/side/rear/turret/roof/tracks), penetration with distance falloff, impact-angle ricochets, critical hits, module damage (track/engine/gun)
+- Armor indicator (LIKELY / POSSIBLE / UNLIKELY / NO CHANCE) computed from the same math as the simulation
+- Supply drops: damage boost, defense boost, field repair, cloak field
+- Role-based team AI (assault / flanker / sniper / support / defender) with A* pathing
+- Procedural sky with drifting clouds, PMREM environment lighting, bloom + filmic grade post-processing
+- Procedural audio (WebAudio synthesis) — no audio files
+- Graphics presets Low / Medium / High, persistent settings, FPS counter
+
+### 3. Gameplay / 玩法
+Destroy enemy tanks to score for your team. Higher score when the 8-minute timer ends — or first to the score limit — wins. Destroyed tanks respawn after 6 seconds with 3 seconds of spawn protection.
+
+### 4. Tank Classes / 坦克类型
+| Class | Vehicles | Identity |
+| --- | --- | --- |
+| Light | KESTREL KL-1, JACKAL JL-3 | Fast scouts, flankers, low armor |
+| Medium | BULWARK BM-4, VANGUARD VK-7 | Balanced main battle tanks |
+| Heavy | IRONWOLF IH-8, COLOSSUS CS-9 | Thick armor, heavy guns, slow |
+| Tank Destroyer | MAUL MH-5, LANCE LL-6 | Casemate guns, huge alpha, limited gun arc |
+
+### 5. Tank References / 坦克设计参考
+The vehicles are **original TankMe designs inspired by public historical references** (museum data and historical photographs — not game assets):
+
+| TankMe vehicle | Historical reference | Visual characteristics borrowed |
+| --- | --- | --- |
+| KESTREL KL-1 | M551 Sheridan | Compact aluminum-look hull, forward turret, large gun, 5 road wheels |
+| JACKAL JL-3 | Type 62 | Small cast turret, slim high-velocity gun, small silhouette |
+| BULWARK BM-4 | M4 Sherman | Tall rounded hull, cast turret, WWII industrial language |
+| VANGUARD VK-7 | M48 Patton | Long cast turret with bustle, commander cupola, bore extractor |
+| IRONWOLF IH-8 | Tiger I | Boxy welded hull/turret, long cannon, double-baffle brake, wide tracks |
+| COLOSSUS CS-9 | Maus | Super-heavy hull, enormous boxy turret, extreme mass |
+| MAUL MH-5 | ISU-152 | Fixed casemate superstructure, massive frontal gun |
+| LANCE LL-6 | AMX 50 Foch | Low post-war French casemate, very long gun |
+
+Names, stats, textures, decals and models are TankMe originals. / 车辆命名、数据、贴图与模型均为 TankMe 原创。
+
+### 6. Architecture / 项目架构
+```
+src/
+├── config/      data-driven specs (tanks, map, powerups, match, quality, combat)
+├── core/        Game loop, events bus, settings, input
+├── render/      renderer, sky/lighting, procedural PBR textures
+├── world/       analytic terrain, AABB physics, A* nav grid, map builder
+├── tank/        TankAssetLibrary (GLB), procedural fallback, tank entity
+├── combat/      projectile pool, armor math (shared sim + UI)
+├── controllers/ PlayerController, role-based AIController
+├── effects/     GPU particle pools, debris, damage numbers, camera trauma
+├── powerup/     supply drop system
+├── audio/       WebAudio synthesis engine
+├── match/       teams, scoring, respawns, objectives
+└── ui/          HUD, menus, minimap (DOM overlay)
+assets/tanks/    Blender build scripts + source exports (per-vehicle folders)
 ```
 
-> 推荐使用现代桌面浏览器（Chrome / Edge / Firefox）。首次点击任意按钮后音频自动启用。
+### 7. Technology Stack / 技术栈
+Vite · TypeScript (strict) · Three.js (WebGL2) · Blender 4.5 LTS + Python (asset pipeline) · WebAudio · DOM/CSS UI
 
-## 玩法
+### 8. Installation / 安装方法
+```bash
+npm install
+```
+Optional (only to rebuild tank assets): install Blender 4.5+ and note its path.
 
-- **模式**：团队死亡竞赛（TDM），7v7 或 14v14，同一张地图
-- **胜利**：击毁敌方坦克得 1 分，先到分数上限或时限结束时分数高者获胜
-- **坦克**：3 种定位截然不同的战车
-  - **JACKAL JL-3**（轻型）— 高速侧翼猎手，转炮快、装甲薄
-  - **VANGUARD VK-7**（中型）— 火力/装甲/机动均衡的主战坦克
-  - **COLOSSUS CS-9**（重型）— 移动堡垒，重炮厚甲但迟缓
-- **装甲系统**：正面 / 侧面 / 后部 / 炮塔四个装甲区域，伤害取决于命中区域与穿深；击穿薄弱部位可触发暴击
-- **空投物资**：地图固定生成点定期刷新 4 种补给
-  - 🔶 伤害增强（+30% 伤害，15s）　🔷 防御增强（-40% 承伤，15s）
-  - 🟩 战地维修（立即恢复 25% HP）　🟪 隐身力场（降低 AI 侦测，12s）
-- **AI**：5 种战场角色（突击/侧翼/狙击/支援/防守），基于状态机 + A* 寻路 + 团队目标协同作战
+### 9. Development / 开发方法
+```bash
+npm run dev         # dev server → http://localhost:5173
+npm run typecheck   # strict TypeScript check
+npm run build       # production bundle → dist/
+npm run preview     # serve the production build
+```
 
-## 操作
+### 10. Running the Game / 运行方法
+Open http://localhost:5173 → **BATTLE** → pick a mode and vehicle → **DEPLOY**.
+WASD drives, mouse aims (turret follows), LMB fires, RMB zooms, Space brakes, Esc pauses.
 
-| 按键 | 功能 |
+### 11. Blender Workflow / Blender 建模流程
+1. Historical reference → 2. design study → 3. parametric Blender build → 4. PBR materials → 5. rig pivots → 6. LOD → 7. GLB export → 8. Three.js integration → 9. in-game visual pass.
+
+`assets/tanks/_kit/` contains the whole pipeline:
+- `tank_kit.py` — parametric construction kit (lofted hulls, cast/boxy turrets, road wheels, segmented tracks, detail props) + numpy PBR texture generation (camo albedo, roughness wear, derived normals)
+- `build_all.py` — per-vehicle configs and assembly; exports `<id>_LOD{0,1,2}.glb` into `assets/tanks/<id>/` and `public/tanks/<id>/`
+- `preview.py` — headless Cycles preview renders
+- `probe_glb.py` — prints the exported node hierarchy (debugging the rig contract)
+
+Run:
+```bash
+blender --background --python build_all.py             # all vehicles × 3 LODs
+blender --background --python build_all.py -- --tank=jackal
+blender --background --python preview.py -- <glb> <png>
+```
+
+### 12. Asset Pipeline / 资产流程
+Exported node contract (the engine rebinds these by name):
+```
+TankRoot
+├── Hull
+├── Turret (pivot: engine applies yaw)
+│   └── Cannon (pivot: engine applies elevation + recoil offset)
+│       └── Muzzle (empty: shell spawn point)
+├── TrackL / TrackR
+└── Wheels_L / Wheels_R
+```
+LOD0 ≤ 75 m · LOD1 ≤ 160 m · LOD2 beyond. Materials are Principled BSDF with embedded PNG textures (albedo / roughness / normal). Clones rebind materials per battle instance so wreck/cloak states stay per-tank.
+
+### 13. Tank Data / 坦克数据
+All stats live in `src/config/tanks.ts` (hp, 6-zone armor, damage, penetration, reload, speeds, rotation rates, dims, model linkage). Adding a vehicle = build a GLB + add one config entry. Combat tuning (penetration rolls, ricochet angle, module durations, verdict thresholds) lives in `src/config/combat.ts`.
+
+### 14. Graphics Settings / 画面设置
+Low / Medium / High control pixel ratio, shadows (off/1024/2048), particle scale, fog density, post-processing (bloom + grade + FXAA) and nameplate range. Settings persist in `localStorage`.
+
+### 15. Performance Optimization / 性能优化
+- 28 tanks at 60 FPS on a mid-range desktop (measured)
+- 3-level LOD per vehicle, frustum culling, per-instance material clones only where needed
+- pooled projectiles (one InstancedMesh), pooled GPU particles (3 draw calls), pooled debris/rings/lights
+- staggered AI thinking (~4 Hz per tank), pure-function terrain (no heightfield lookup cost beyond math)
+- merged static environment geometry (one draw call per material)
+
+### 16. Controls / 操作方式
+| Input | Action |
+| --- | --- |
+| W / S | forward / reverse |
+| A / D | steer hull |
+| Mouse | camera aim (turret follows) |
+| LMB | fire |
+| RMB / wheel | zoom gunner sight |
+| Space | brake |
+| Esc | pause |
+
+### 17. Project Structure / 项目结构
+See section 6. Vehicle sources: `assets/tanks/<id>/` (`*.glb`, `preview_LOD0.png`), shared textures in `assets/tanks/textures/`, pipeline scripts in `assets/tanks/_kit/`.
+
+### 18. Known Issues / 已知问题
+- In hidden browser tabs the render loop pauses by design (rAF throttling); boot completes regardless.
+- Enemy nameplates are simple sprites; occlusion edges can shimmer at extreme zoom.
+- AI pathing uses a coarse 8 m grid; tight building corners may require a reverse-and-retry.
+
+### 19. Future Improvements / 未来计划
+- Multiplayer (the Controller abstraction was designed for it)
+- Domination / base-destruction modes
+- More vehicles and maps via the same pipeline
+- Optional GLTF animations for suspension details
+
+### 20. Credits / 参考资料
+- Design references: publicly available historical documentation and museum photographs of the M551 Sheridan, Type 62, M4 Sherman, M48 Patton, Tiger I, Maus, ISU-152 and AMX 50 Foch.
+- Engine: Three.js — https://threejs.org
+- Modeling: Blender — https://www.blender.org
+- All TankMe assets (models, textures, sounds, map, UI) are original works generated for this project.
+
+---
+
+## 中文
+
+### 1. 项目介绍
+TankMe 是一款完全运行在浏览器中的快节奏团队坦克对战游戏。两支由 AI 驾驶的坦克队伍（外加玩家一辆）在「Ironridge Crossing / 铁脊隘口」交战——这是一张战术结构完整的地图，包含中央山脊、围墙村庄、工业废墟与侧翼路线。
+
+### 2. 功能
+- 同一张地图支持 7v7 与 14v14 团队死亡竞赛
+- 8 辆原创车辆、4 个类别，每辆配备 3 级 LOD 的 GLB 模型
+- 6 区域装甲（正面/侧面/后部/炮塔/车顶/履带）、随距离衰减的穿深、大角度跳弹、暴击、模块损伤（履带/发动机/火炮）
+- 装甲指示器（大概率 / 有可能 / 较难 / 无法击穿）与模拟共用同一套数学
+- 空投物资：伤害增强、防御增强、战地维修、隐身力场
+- 角色化团队 AI（突击/侧翼/狙击/支援/防守）+ A* 寻路
+- 程序化天空（流动云层）、PMREM 环境光照、Bloom + 电影级调色后处理
+- WebAudio 程序化音效——零音频文件
+- Low / Medium / High 画质预设、设置持久化、FPS 计数
+
+### 3. 玩法
+击毁敌方坦克为队伍得分。8 分钟计时结束时比分更高、或率先达到分数上限的队伍获胜。被击毁的坦克 6 秒后重生，并有 3 秒出生保护。
+
+### 4. 坦克类型
+| 类别 | 车辆 | 定位 |
+| --- | --- | --- |
+| 轻型 | KESTREL KL-1、JACKAL JL-3 | 高速侦察、侧翼骚扰、低装甲 |
+| 中型 | BULWARK BM-4、VANGUARD VK-7 | 均衡主战坦克 |
+| 重型 | IRONWOLF IH-8、COLOSSUS CS-9 | 厚甲重炮、机动缓慢 |
+| 坦克歼击车 | MAUL MH-5、LANCE LL-6 | 固定战斗室、高爆发、火炮射界受限 |
+
+### 5. 坦克设计参考
+车辆均为**受公开历史资料启发的 TankMe 原创设计**（参考博物馆资料与历史照片，非游戏资产）。对照关系见上文英文表格：KESTREL 参考 Sheridan、JACKAL 参考 62 式、BULWARK 参考 M4 谢尔曼、VANGUARD 参考 M48 巴顿、IRONWOLF 参考虎式、COLOSSUS 参考鼠式、MAUL 参考 ISU-152、LANCE 参考 AMX 50 福熙。命名、数据、贴图、涂装与模型均为 TankMe 原创。
+
+### 6. 项目架构
+见上文英文第 6 节目录树。`src/config/` 集中所有数据驱动配置；`assets/tanks/` 为 Blender 建模工程与导出产物。
+
+### 7. 技术栈
+Vite · TypeScript（严格模式）· Three.js（WebGL2）· Blender 4.5 LTS + Python（资产管线）· WebAudio · DOM/CSS 界面
+
+### 8. 安装方法
+```bash
+npm install
+```
+可选（仅在需要重建坦克模型时）：安装 Blender 4.5+ 并记录其路径。
+
+### 9. 开发方法
+```bash
+npm run dev         # 开发服务器 → http://localhost:5173
+npm run typecheck   # 严格 TypeScript 检查
+npm run build       # 生产构建 → dist/
+npm run preview     # 预览生产构建
+```
+
+### 10. 运行游戏
+打开 http://localhost:5173 → **BATTLE** → 选择模式与车辆 → **DEPLOY**。
+WASD 驾驶，鼠标瞄准（炮塔跟随），左键开火，右键/滚轮缩放瞄准镜，空格紧急制动，Esc 暂停。
+
+### 11. Blender 建模流程
+流程：历史参考 → 设计研究 → 参数化 Blender 建模 → PBR 材质 → 枢轴装配 → LOD → GLB 导出 → Three.js 集成 → 游戏内视觉打磨。
+
+`assets/tanks/_kit/` 包含整条管线：
+- `tank_kit.py` 参数化建模套件（放样车体、铸造/焊接炮塔、负重轮、分段履带、细节件）+ numpy 程序化 PBR 贴图（迷彩固有色、磨损粗糙度、派生法线）
+- `build_all.py` 每辆车的配置与装配，导出 `<id>_LOD{0,1,2}.glb` 到 `assets/tanks/<id>/` 与 `public/tanks/<id>/`
+- `preview.py` 无头 Cycles 预览渲染
+- `probe_glb.py` 打印导出的节点层级（调试装配约定）
+
+命令示例：
+```bash
+blender --background --python build_all.py             # 全部车辆 × 3 级 LOD
+blender --background --python build_all.py -- --tank=jackal
+blender --background --python preview.py -- <glb> <png>
+```
+
+### 12. 资产流程
+导出的节点约定（引擎按名称重新绑定）：
+```
+TankRoot
+├── Hull（车体）
+├── Turret（炮塔枢轴：引擎施加回转）
+│   └── Cannon（火炮枢轴：引擎施加俯仰与后坐位移）
+│       └── Muzzle（空节点：炮弹生成点）
+├── TrackL / TrackR（左右履带）
+└── Wheels_L / Wheels_R（左右负重轮）
+```
+LOD0 ≤ 75 米 · LOD1 ≤ 160 米 · 更远使用 LOD2。材质为 Principled BSDF + 内嵌 PNG 贴图（固有色 / 粗糙度 / 法线）。战斗中克隆材质到每辆实例，击毁/隐身状态互不影响。
+
+### 13. 坦克数据
+全部数值位于 `src/config/tanks.ts`（生命值、6 区域装甲、伤害、穿深、装填、机动、尺寸、模型关联）。新增车辆 = 构建一个 GLB + 增加一条配置。战斗调参（穿深浮动、跳弹角度、模块持续时间、击穿判定阈值）位于 `src/config/combat.ts`。
+
+### 14. 画面设置
+Low / Medium / High 控制像素比、阴影（关/1024/2048）、粒子规模、雾密度、后处理（Bloom + 调色 + FXAA）与名牌显示距离。设置保存在 `localStorage`。
+
+### 15. 性能优化
+- 实测中端桌面 28 辆坦克 60 FPS
+- 每辆车 3 级 LOD、视锥剔除、仅在需要处克隆材质
+- 炮弹对象池（单个 InstancedMesh）、GPU 粒子池（3 个 draw call）、碎片/冲击环/灯光对象池
+- AI 思考错峰（每辆约 4 Hz）、地形为纯函数（无高度场查表）
+- 静态环境按材质合并（每种材质一个 draw call）
+
+### 16. 操作方式
+| 输入 | 动作 |
 | --- | --- |
 | W / S | 前进 / 倒车 |
 | A / D | 车体转向 |
-| 鼠标 | 视角 / 瞄准（炮塔独立跟随） |
-| 鼠标左键 | 开火 |
-| 鼠标右键 | 按住 zoom 瞄准镜 |
-| Space | 紧急制动 |
-| Esc | 暂停菜单 |
+| 鼠标 | 相机瞄准（炮塔跟随） |
+| 左键 | 开火 |
+| 右键 / 滚轮 | 瞄准镜缩放 |
+| 空格 | 制动 |
+| Esc | 暂停 |
 
-## 战术提示
+### 17. 项目结构
+见第 6 节。车辆资产：`assets/tanks/<id>/`（`*.glb`、`preview_LOD0.png`），共享贴图在 `assets/tanks/textures/`，管线脚本在 `assets/tanks/_kit/`。
 
-1. 正面装甲最厚——绕侧打后部伤害翻倍
-2. 摆角度迎敌能让对方炮弹"跳弹"（减免伤害）
-3. 掩体后装填，探头射击
-4. 空投点有光柱标识，补给能改变战局
-5. 跟着队友推进，落单就是活靶子
+### 18. 已知问题
+- 浏览器后台标签页中渲染循环按设计暂停（rAF 节流）；启动流程不受影响
+- 敌方名牌为简单精灵，极端变焦时遮挡边缘可能轻微闪烁
+- AI 使用 8 米粗网格寻路，贴墙死角偶尔需要倒车重试
 
-## 技术架构
+### 19. 未来计划
+- 多人联机（Controller 抽象已为此预留）
+- 占领点 / 基地摧毁模式
+- 用同一管线扩充车辆与地图
+- 可选的 GLTF 悬挂细节动画
 
-```
-src/
-├── config/        # 数据驱动配置（坦克/地图/物资/比赛/画质）
-├── core/          # 事件总线、设置持久化、输入、Game 主循环
-├── render/        # 渲染器、光照天空、程序化 Canvas 纹理
-├── world/         # 解析地形高度场、AABB 物理、A* 导航网格、地图构建
-├── tank/          # 程序化坦克模型 + 实体（移动/炮塔/伤害/Buff）
-├── combat/        # 炮弹对象池、装甲区域伤害计算
-├── controllers/   # 玩家控制器 / AI 控制器（角色化状态机）
-├── effects/       # GPU 粒子池、爆炸、命中特效、伤害数字、震屏
-├── powerup/       # 空投生成/拾取系统
-├── audio/         # WebAudio 程序化音效（零音频文件）
-├── match/         # 比赛管理（队伍/计分/重生/胜负）
-└── ui/            # DOM HUD、菜单、小地图
-```
-
-**关键技术决策**
-
-- **零外部资源**：坦克由几何体程序化拼装，纹理由 Canvas 生成，音效由 WebAudio 合成
-- **解析地形**：`heightAt(x,z)` 为纯函数，地形网格/坦克/炮弹/AI/摄像机采样同一表面，无插值错位
-- **轻量物理**：AABB 碰撞 + 圆形推挤解析，炮弹子步扫描防穿透，不为坦克游戏引入刚体引擎
-- **性能优先**：单几何体合并坦克（约 7 draw call/辆）、64 发炮弹 InstancedMesh、双 GPU 粒子系统（2 draw call）、AI 错峰思考（~4Hz/辆）、对象池全覆盖
-- **14v14 实测**：28 辆坦克 60 FPS、约 300 draw calls、7 万三角形
-- **多人就绪**：所有坦克由统一 `Controller` 接口驱动（玩家/AI 同接口），未来可直接替换为网络输入流
-
-## 配置化
-
-几乎所有游戏数值集中在 `src/config/`：
-
-- `tanks.ts` — 生命/装甲四区/穿深/装填/机动/尺寸/涂装
-- `map.ts` — 地形参数、道路、建筑、岩石植被、出生点、空投点、AI 目标点
-- `powerups.ts` — 种类/权重/时长/生成间隔/拾取半径/效果强度
-- `match.ts` — 比赛时长/击杀分/重生时间/出生保护/队伍规模/分数上限
-- `quality.ts` — Low / Medium / High 画质预设（阴影/粒子/视距/像素比）
-
-加一辆新坦克 = 在 `TANKS` 加一条配置；加一张新地图 = 写一份 map 配置。
-
-## 测试钩子
-
-`window.__tankme.game` 暴露 `debugState()` / `debugFrame()` / `debugInput()` / `debugResume()` 等方法，便于自动化测试与调试。
-
-## 路线图
-
-- [x] 7v7 / 14v14 团队死亡竞赛
-- [x] 装甲区域 + 穿深 + 暴击
-- [x] 4 种空投物资
-- [x] 角色化团队 AI
-- [ ] 占领点 / 推基地方向
-- [ ] 多人联机（WebSocket 状态同步）
-- [ ] 更多坦克与地图
+### 20. 参考资料 / Credits
+- 设计参考：M551 Sheridan、62 式坦克、M4 谢尔曼、M48 巴顿、虎式、鼠式、ISU-152、AMX 50 福熙的公开历史文档与博物馆照片
+- 引擎：Three.js — https://threejs.org
+- 建模：Blender — https://www.blender.org
+- TankMe 的全部资产（模型、贴图、音效、地图、界面）均为本项目原创生成

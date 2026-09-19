@@ -9,12 +9,14 @@ import type { TeamId } from '../config/match';
 import { MATCH_CONFIG, TEAMS } from '../config/match';
 import { POWERUP_CONFIG } from '../config/powerups';
 import type { PowerupDef, PowerupId } from '../config/powerups';
+import { COMBAT_CONFIG } from '../config/combat';
+import type { ModuleId } from '../config/combat';
 import { TankVisual } from './TankModel';
 import type { PhysicsWorld } from '../world/Physics';
 import { heightAt } from '../world/Terrain';
 import { bus, EV } from '../core/Events';
 
-export type DamageZone = 'front' | 'side' | 'rear' | 'turret';
+export type DamageZone = 'front' | 'side' | 'rear' | 'turret' | 'top' | 'tracks';
 
 export interface TankStats {
   kills: number; deaths: number; damageDealt: number; damageTaken: number;
@@ -72,6 +74,8 @@ export class Tank {
   reloadLeft = 0;
   recoil = 0;
   buffs = new Map<PowerupId, number>();
+  /** knocked-out module timers (seconds remaining); 0 = operational */
+  modules: Record<ModuleId, number> = { track: 0, engine: 0, gun: 0 };
   stats: TankStats = { kills: 0, deaths: 0, damageDealt: 0, damageTaken: 0, shots: 0, hits: 0 };
 
   readonly radius: number;
@@ -124,6 +128,7 @@ export class Tank {
     this.respawnTimer = 0;
     this.spawnProt = MATCH_CONFIG.spawnProtection;
     this.buffs.clear();
+    this.modules.track = 0; this.modules.engine = 0; this.modules.gun = 0;
     this.speed = 0;
     this.reloadLeft = 0.001;
     this.recoil = 0;
@@ -162,9 +167,18 @@ export class Tank {
     const m = this.spec.mobility;
     const inp = this.input;
 
+    // ---- module debuffs ----
+    for (const k of ['track', 'engine', 'gun'] as ModuleId[]) {
+      if (this.modules[k] > 0) this.modules[k] = Math.max(0, this.modules[k] - dt);
+    }
+    const immobile = this.modules.track > 0;
+    const engineFactor = this.modules.engine > 0 ? COMBAT_CONFIG.modules.engine.speedMult : 1;
+
     // ---- longitudinal ----
-    const targetSpeed = inp.throttle >= 0 ? inp.throttle * m.maxSpeed : inp.throttle * m.reverseSpeed;
-    const accel = inp.throttle === 0 || inp.brake ? m.brake : m.accel;
+    const targetSpeed = immobile ? 0
+      : inp.throttle >= 0 ? inp.throttle * m.maxSpeed * engineFactor
+      : inp.throttle * m.reverseSpeed * engineFactor;
+    const accel = inp.throttle === 0 || inp.brake ? m.brake : m.accel * engineFactor;
     if (inp.brake) {
       const drop = m.brake * 2 * dt;
       this.speed = Math.abs(this.speed) <= drop ? 0 : this.speed - Math.sign(this.speed) * drop;
@@ -177,7 +191,7 @@ export class Tank {
     // ---- steering ----
     const speedFrac = Math.min(1, Math.abs(this.speed) / m.maxSpeed);
     const pivotFactor = 1 - 0.45 * speedFrac;
-    const yawRate = inp.steer * m.hullRot * pivotFactor * (this.speed < -0.1 ? -1 : 1);
+    const yawRate = inp.steer * m.hullRot * pivotFactor * (immobile ? 0.35 : 1) * (this.speed < -0.1 ? -1 : 1);
     this.lastYawRate = yawRate;
     this.yaw += yawRate * dt;
 
@@ -340,7 +354,7 @@ export class Tank {
 
   private fire(): void {
     const g = this.spec.gun;
-    this.reloadLeft = g.reload;
+    this.reloadLeft = g.reload * (this.modules.gun > 0 ? COMBAT_CONFIG.modules.gun.reloadMult : 1);
     this.recoil = 1;
     this.stats.shots++;
     if (this.spawnProt > 0) this.spawnProt = 0;
@@ -366,8 +380,12 @@ export class Tank {
     bus.emit(EV.tankFire, { tank: this });
   }
 
-  /** ray/point hit test against hull OBB (turret zone detected by local height) */
-  hitTest(worldPoint: THREE.Vector3): DamageZone | null {
+  /**
+   * Point (+ optional incoming direction) hit test against the hull OBB.
+   * Zones: front / side / rear / turret / top / tracks. The direction refines
+   * roof vs turret and is required by the armor math for impact angles.
+   */
+  hitTest(worldPoint: THREE.Vector3, worldDir?: THREE.Vector3): DamageZone | null {
     this.visual.root.updateMatrixWorld(true);
     _m1.copy(this.visual.root.matrixWorld).invert();
     const lp = _v1.copy(worldPoint).applyMatrix4(_m1);
@@ -375,7 +393,10 @@ export class Tank {
     const halfW = this.visual.halfW;
     if (Math.abs(lp.x) > halfW + 0.1 || Math.abs(lp.z) > halfL + 0.1) return null;
     if (lp.y < -0.4 || lp.y > this.visual.fullH + 0.4) return null;
-    if (lp.y > this.visual.hullTopY - 0.02) return 'turret';
+    const dy = worldDir ? _v2.copy(worldDir).transformDirection(_m1).y : 0;
+    if (lp.y > this.visual.hullTopY - 0.02) return dy < -0.62 ? 'top' : 'turret';
+    if (lp.y < 0.5 && Math.abs(lp.x) > halfW - this.spec.dims.trackW * 1.15) return 'tracks';
+    if (dy < -0.72) return 'top';
     if (lp.z > halfL * 0.55) return 'front';
     if (lp.z < -halfL * 0.55) return 'rear';
     return 'side';
@@ -383,6 +404,13 @@ export class Tank {
 
   armorAt(zone: DamageZone): number {
     return this.spec.armor[zone];
+  }
+
+  /** knock out a module for a while (worst timer wins) */
+  damageModule(module: ModuleId): void {
+    const duration = COMBAT_CONFIG.modules[module].duration;
+    this.modules[module] = Math.max(this.modules[module], duration);
+    bus.emit(EV.moduleDamaged, { tank: this, module });
   }
 
   applyDamage(amount: number, attacker: Tank | null, point: THREE.Vector3, crit: boolean): number {

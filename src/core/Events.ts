@@ -21,9 +21,13 @@ export const bus = new Emitter();
 
 /** Event names used across the game */
 export const EV = {
-  combatHit: 'combat:hit',          // {shooter, victim, amount, crit, point, killed}
   tankFire: 'tank:fire',            // {tank}
+  projectileHit: 'combat:projectileHit', // {shooter, victim, zone, point}
+  armorPenetrated: 'combat:armorPenetrated', // {shooter, victim, amount, crit, module, zone, point, killed}
+  armorBlocked: 'combat:armorBlocked',       // {shooter, victim, zone, point, reason: 'armor'|'ricochet'}
+  criticalHit: 'combat:criticalHit',          // {shooter, victim, module, point}
   tankDamaged: 'tank:damaged',      // {victim, attacker, amount, point}
+  moduleDamaged: 'tank:moduleDamaged', // {tank, module}
   tankDeath: 'tank:death',          // {victim, attacker}
   tankRespawn: 'tank:respawn',      // {tank}
   powerupSpawn: 'powerup:spawn',    // {def, point}

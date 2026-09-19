@@ -69,9 +69,9 @@ const SKY_FRAG = `
       vec2 cuv = dir.xz / (dir.y + 0.22) * 1.35 + vec2(uTime * 0.006, uTime * 0.0022);
       float n = fbm(cuv * 1.4);
       float n2 = fbm(cuv * 2.8 + vec2(4.7));
-      float cover = smoothstep(0.52, 0.74, n) * 0.82;
+      float cover = smoothstep(0.60, 0.80, n) * 0.85;
       float horizonFade = smoothstep(0.02, 0.16, dir.y);
-      vec3 cloud = mix(cloudColor * 0.86, cloudColor, smoothstep(0.4, 0.9, n2));
+      vec3 cloud = mix(cloudColor * 0.88, cloudColor, smoothstep(0.4, 0.9, n2));
       // silver lining toward the sun
       cloud += sunColor * pow(sunDot, 3.0) * 0.18 * cover;
       col = mix(col, cloud, cover * horizonFade);

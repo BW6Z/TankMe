@@ -9,6 +9,8 @@ import { QUALITY_PRESETS } from '../config/quality';
 import type { Settings } from '../core/Settings';
 import type { ScoreboardRow } from '../match/MatchManager';
 import { MATCH_CONFIG } from '../config/match';
+import type { ModuleId } from '../config/combat';
+import { MODULE_INFO } from '../config/combat';
 
 export interface UICallbacks {
   startBattle(modeId: string, tankId: string): void;
@@ -71,9 +73,16 @@ export class UI {
   private tiName = id<HTMLSpanElement>('ti-name');
   private tiDist = id<HTMLSpanElement>('ti-dist');
   private tiHpFill = id<HTMLDivElement>('ti-hp-fill');
+  private tiArmor = id<HTMLSpanElement>('ti-armor');
+  private tiPen = id<HTMLSpanElement>('ti-pen');
+  private cfLayer = id<HTMLDivElement>('combat-feedback');
+  private killBanner = id<HTMLDivElement>('kill-banner');
+  private killBannerTitle = id<HTMLDivElement>('kb-title');
+  private killBannerSub = id<HTMLDivElement>('kb-sub');
 
   private hitmarkerTimeout: number | undefined;
   private dirTimeout: number | undefined;
+  private killBannerTimeout: number | undefined;
 
   constructor(
     private settings: Settings,
@@ -266,13 +275,15 @@ export class UI {
   // ---------------- HUD ----------------
 
   hudFrame(dt: number, data: {
-    spec: TankSpec; hp: number; maxHp: number; reloadFrac: number; zoomed: boolean;
+    spec: TankSpec; hp: number; maxHp: number; reloadFrac: number; reloadLeft: number; zoomed: boolean;
     speedKmh: number; spread: number;
     buffs: { id: PowerupId; def: PowerupDef; time: number }[];
+    modules: ModuleId[];
     scoreA: number; scoreB: number; timeLeft: number; alive: boolean; respawnTimer: number;
     killedBy: string;
     gunMarker: { x: number; y: number; behind: boolean } | null;
-    aimTarget: { name: string; hp: number; maxHp: number; dist: number } | null;
+    aimTarget: { name: string; hp: number; maxHp: number; dist: number; zone: string } | null;
+    armorViz: { color: string; label: string; zone: string; eff: number } | null;
   }): void {
     const hpFrac = data.hp / data.maxHp;
     this.hpFill.style.width = `${Math.max(0, hpFrac * 100)}%`;
@@ -286,10 +297,17 @@ export class UI {
       ? `conic-gradient(var(--reload-ready) 100%, transparent 0)`
       : `conic-gradient(var(--reload-warn) ${rf * 100}%, transparent 0)`;
     this.reloadRing.style.opacity = ready ? '0.35' : '0.9';
-    this.reloadText.textContent = ready ? 'READY' : 'RELOADING';
+    this.reloadText.textContent = ready ? 'READY' : `RELOADING · ${Math.max(0, data.reloadLeft).toFixed(1)}s`;
     this.reloadText.className = ready ? '' : 'loading';
     this.crosshair.className = data.zoomed ? 'zoomed' : '';
     this.crosshair.style.setProperty('--spread', `${(6 + data.spread * 18).toFixed(1)}px`);
+
+    // armor indicator color on the crosshair (green → red penetration chance)
+    if (data.armorViz) {
+      this.crosshair.style.setProperty('--armor-color', data.armorViz.color);
+    } else {
+      this.crosshair.style.removeProperty('--armor-color');
+    }
 
     // gun alignment marker
     if (data.gunMarker && !data.gunMarker.behind) {
@@ -300,12 +318,17 @@ export class UI {
       this.gunMarker.style.display = 'none';
     }
 
-    // target info panel
+    // target info panel with armor readout
     if (data.aimTarget) {
       this.targetInfo.classList.add('visible', 'enemy');
       this.tiName.textContent = data.aimTarget.name;
       this.tiDist.textContent = `${Math.round(data.aimTarget.dist)} m`;
       this.tiHpFill.style.width = `${Math.max(0, (data.aimTarget.hp / data.aimTarget.maxHp) * 100)}%`;
+      this.tiArmor.textContent = data.armorViz
+        ? `${data.armorViz.zone} · ${Math.round(data.armorViz.eff)}mm`
+        : data.aimTarget.zone ? data.aimTarget.zone : '—';
+      this.tiPen.textContent = data.armorViz ? data.armorViz.label : '—';
+      this.tiPen.style.color = data.armorViz ? data.armorViz.color : '';
     } else {
       this.targetInfo.classList.remove('visible');
     }
@@ -317,19 +340,25 @@ export class UI {
     this.matchTimer.textContent = `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
     this.matchTimer.classList.toggle('low', t <= 30);
 
-    // buffs (rebuild at 5Hz or on change)
+    // buffs + damaged modules (rebuild at 5Hz or on change)
     this.buffAcc += dt;
-    const key = data.buffs.map((b) => b.id).join(',');
+    const key = data.buffs.map((b) => b.id).join(',') + '|' + data.modules.join(',');
     if (this.buffAcc > 0.2 || key !== this.lastBuffKey) {
       this.buffAcc = 0;
       this.lastBuffKey = key;
-      this.buffBar.innerHTML = data.buffs.map((b) => `
+      const buffChips = data.buffs.map((b) => `
         <div class="buff-chip">
           <svg style="color:${b.def.cssColor}"><use href="#${BUFF_ICONS[b.id]}"/></svg>
           <span class="bc-name">${b.def.name}</span>
           <span class="bc-time">${Math.ceil(b.time)}s</span>
           <div class="bc-bar" style="background:${b.def.cssColor};width:${Math.min(100, (b.time / b.def.duration) * 100)}%"></div>
-        </div>`).join('');
+        </div>`);
+      const moduleChips = data.modules.map((m) => `
+        <div class="buff-chip damaged">
+          <span class="bc-name">${MODULE_INFO[m].label}</span>
+          <div class="bc-bar" style="background:${MODULE_INFO[m].cssColor}"></div>
+        </div>`);
+      this.buffBar.innerHTML = buffChips.join('') + moduleChips.join('');
     }
 
     // vignettes
@@ -378,7 +407,34 @@ export class UI {
     this.lastA = 0; this.lastB = 0;
     this.respawnOverlay.classList.remove('visible');
     this.targetInfo.classList.remove('visible');
+    this.cfLayer.innerHTML = '';
+    this.killBanner.classList.remove('visible');
+    this.crosshair.style.removeProperty('--armor-color');
     this.scorePop.clear();
+  }
+
+  // ---------------- combat feedback ----------------
+
+  /** transient text feedback in the center of the screen (pen/block/crit) */
+  combatFeedback(text: string, cls: '' | 'good' | 'bad' | 'crit' | 'block' = ''): void {
+    const el = document.createElement('div');
+    el.className = `cf-item${cls ? ' ' + cls : ''}`;
+    el.textContent = text;
+    this.cfLayer.appendChild(el);
+    while (this.cfLayer.children.length > 3) this.cfLayer.firstChild?.remove();
+    window.setTimeout(() => { el.classList.add('out'); }, 1400);
+    window.setTimeout(() => { el.remove(); }, 1900);
+  }
+
+  /** big center kill message with fade-in / hold / fade-out */
+  killMessage(title: string, sub: string): void {
+    this.killBannerTitle.textContent = title;
+    this.killBannerSub.textContent = sub;
+    this.killBanner.classList.remove('visible');
+    void this.killBanner.offsetWidth; // restart the animation
+    this.killBanner.classList.add('visible');
+    clearTimeout(this.killBannerTimeout);
+    this.killBannerTimeout = window.setTimeout(() => this.killBanner.classList.remove('visible'), 2600);
   }
 
   killfeed(killerName: string, killerTeam: number, victimName: string, victimTeam: number): void {

@@ -185,8 +185,10 @@
     <div id="hud" class="screen">
       <!-- target info -->
       <div id="target-info">
-        <div class="ti-top"><span id="ti-name">—</span><span id="ti-dist">0 m</span></div>
+        <div class="ti-top"><span class="ti-label">TARGET</span><span id="ti-name">—</span><span id="ti-dist">0 m</span></div>
         <div class="ti-hp"><div id="ti-hp-fill"></div></div>
+        <div class="ti-row"><span class="ti-label">ARMOR</span><span id="ti-armor">—</span></div>
+        <div class="ti-row"><span class="ti-label">PENETRATION</span><span id="ti-pen">—</span></div>
       </div>
 
       <!-- top center score bar -->
@@ -232,6 +234,15 @@
 
       <!-- damage direction -->
       <div id="dmg-dir"><div class="dir-arc"></div></div>
+
+      <!-- center combat feedback (penetration / block / crit) -->
+      <div id="combat-feedback"></div>
+
+      <!-- center kill message -->
+      <div id="kill-banner">
+        <div id="kb-title">ENEMY DESTROYED</div>
+        <div id="kb-sub">—</div>
+      </div>
 
       <!-- bottom center vehicle panel -->
       <div id="vehicle-panel">

@@ -1,11 +1,15 @@
 /**
  * Pooled projectile system. Shells fly with slight gravity, swept-segment
- * collision vs terrain / obstacles / tank OBBs, and resolve armor-zone damage.
+ * collision vs terrain / obstacles / tank OBBs, then resolve through the
+ * shared armor math: ricochet → penetration roll → damage + crits/modules.
  */
 import * as THREE from 'three';
 import type { Tank } from '../tank/Tank';
+import type { ModuleId } from '../config/combat';
+import { COMBAT_CONFIG } from '../config/combat';
 import type { PhysicsWorld } from '../world/Physics';
 import { heightAt } from '../world/Terrain';
+import { analyzeHit, isRicochet } from './ArmorMath';
 import { bus, EV } from '../core/Events';
 
 const GRAVITY = 13;
@@ -16,6 +20,7 @@ interface Shell {
   alive: boolean;
   pos: THREE.Vector3;
   prev: THREE.Vector3;
+  origin: THREE.Vector3;
   vel: THREE.Vector3;
   life: number;
   owner: Tank | null;
@@ -37,7 +42,7 @@ export class ProjectileSystem {
   constructor(scene: THREE.Scene, private physics: PhysicsWorld, private effects: {
     hitFx(pos: THREE.Vector3, normal: THREE.Vector3, kind: 'dirt' | 'metal' | 'armor'): void;
     shellTrail(pos: THREE.Vector3): void;
-    floatDamage(worldPos: THREE.Vector3, amount: number, kind: 'normal' | 'crit' | 'heal'): void;
+    floatDamage(worldPos: THREE.Vector3, amount: number | string, kind: 'normal' | 'crit' | 'heal' | 'blocked'): void;
     addTrauma(amount: number): void;
   }) {
     const geo = new THREE.SphereGeometry(0.13, 8, 6);
@@ -53,7 +58,7 @@ export class ProjectileSystem {
 
     for (let i = 0; i < POOL_SIZE; i++) {
       this.shells.push({
-        alive: false, pos: new THREE.Vector3(), prev: new THREE.Vector3(),
+        alive: false, pos: new THREE.Vector3(), prev: new THREE.Vector3(), origin: new THREE.Vector3(),
         vel: new THREE.Vector3(), life: 0, owner: null, damage: 0, penetration: 0,
         damageMult: 1, trailAcc: 0,
       });
@@ -71,6 +76,7 @@ export class ProjectileSystem {
     s.owner = owner;
     s.pos.copy(muzzle);
     s.prev.copy(muzzle);
+    s.origin.copy(muzzle);
     s.vel.copy(dir).multiplyScalar(owner.spec.gun.shellSpeed);
     s.life = 0;
     s.damage = owner.spec.gun.damage;
@@ -128,35 +134,88 @@ export class ProjectileSystem {
       const dx = t.pos.x - midX, dz = t.pos.z - midZ;
       const reach = t.radius + s.vel.length() * 0.02 + 1;
       if (dx * dx + dz * dz > reach * reach) continue;
+      _dir.copy(s.vel).normalize();
       // sample current + midpoint against the tank OBB
-      const zone = t.hitTest(s.pos) ?? t.hitTest(_mid.set(midX, midY, midZ));
+      const zone = t.hitTest(s.pos, _dir) ?? t.hitTest(_mid.set(midX, midY, midZ), _dir);
       if (zone) {
-        this.resolveHit(s, t, zone, _mid.set(midX, midY, midZ));
+        this.resolveHit(s, t, _mid.set(midX, midY, midZ));
         return;
       }
     }
   }
 
-  private resolveHit(s: Shell, victim: Tank, zone: string, point: THREE.Vector3): void {
+  /**
+   * Authoritative armor resolution:
+   *   hit point → zone → impact angle → effective armor → ricochet check →
+   *   penetration roll (± spread, distance falloff) → damage + crit/module.
+   */
+  private resolveHit(s: Shell, victim: Tank, point: THREE.Vector3): void {
     if (s.owner) s.owner.stats.hits++;
-    const armor = victim.armorAt(zone as any);
-    const penFactor = Math.max(0.22, Math.min(1.1, s.penetration / Math.max(1, armor)));
-    const crit = penFactor >= 1 && Math.random() < 0.18;
-    const base = s.damage * s.damageMult * penFactor * (crit ? 1.4 : 1);
-    const applied = victim.applyDamage(base, s.owner, point, crit);
+    const flightDist = s.origin.distanceTo(point);
+    const dir = _dir.copy(s.vel).normalize();
+    const analysis = analyzeHit(victim, point, dir, flightDist);
+    const zone = analysis?.zone ?? 'side';
+    bus.emit(EV.projectileHit, { shooter: s.owner, victim, zone, point: _ev.copy(point) });
+
+    // ---- ricochet ----
+    if (analysis && isRicochet(analysis)) {
+      this.effects.floatDamage(point, 'RICOCHET', 'blocked');
+      bus.emit(EV.armorBlocked, {
+        shooter: s.owner, victim, zone, point: _ev.copy(point), reason: 'ricochet',
+      });
+      this.kill(s);
+      return;
+    }
+
+    // ---- penetration roll ----
+    const p = COMBAT_CONFIG.penetration;
+    const effArmor = analysis ? analysis.effArmor : victim.armorAt(zone);
+    const roll = 1 - p.rollSpread + Math.random() * p.rollSpread * 2;
+    const rolledPen = s.penetration * penDistFactor(flightDist) * roll;
+
+    if (rolledPen <= effArmor) {
+      // ---- non-penetration: no HP damage, clear feedback ----
+      this.effects.floatDamage(point, 'BLOCKED', 'blocked');
+      bus.emit(EV.armorBlocked, {
+        shooter: s.owner, victim, zone, point: _ev.copy(point), reason: 'armor',
+      });
+      this.kill(s);
+      return;
+    }
+
+    // ---- penetration: damage with ±spread, crits & modules ----
+    const d = COMBAT_CONFIG.damage;
+    const crit = Math.random() < d.critChance;
+    let module: ModuleId | null = null;
+    let dmg = s.damage * s.damageMult * (1 - d.spread + Math.random() * d.spread * 2);
+    if (crit) dmg *= d.critMult;
+    if (zone === 'tracks') {
+      // running gear soaks most of the shell but always wrecks the track
+      dmg *= COMBAT_CONFIG.modules.track.damageFrac;
+      module = 'track';
+    } else if (crit && Math.random() < d.moduleChance) {
+      module = zone === 'turret' || zone === 'top' ? 'gun' : Math.random() < 0.4 ? 'track' : 'engine';
+    }
+
+    const applied = victim.applyDamage(dmg, s.owner, point, crit);
+    if (module) victim.damageModule(module);
 
     const nrm = _v1.copy(s.vel).normalize().multiplyScalar(-1);
     this.effects.hitFx(point, nrm, 'armor');
 
-    bus.emit(EV.combatHit, {
+    bus.emit(EV.armorPenetrated, {
       shooter: s.owner,
       victim,
       amount: applied,
       crit,
+      module,
       zone,
-      point: _v2.copy(point),
+      point: _ev.copy(point),
       killed: !victim.alive,
     });
+    if (crit) {
+      bus.emit(EV.criticalHit, { shooter: s.owner, victim, module, point: _ev.copy(point) });
+    }
     this.kill(s);
   }
 
@@ -185,6 +244,13 @@ export class ProjectileSystem {
   }
 }
 
+function penDistFactor(flightDist: number): number {
+  const p = COMBAT_CONFIG.penetration;
+  return Math.max(p.minDistFactor, 1 - (p.lossPer100m * flightDist) / 100);
+}
+
 const _mid = new THREE.Vector3();
+const _dir = new THREE.Vector3();
+const _ev = new THREE.Vector3();
 const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();

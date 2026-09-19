@@ -392,7 +392,7 @@ export class Effects {
 
   // ---------------- floating damage numbers ----------------
 
-  floatDamage(worldPos: THREE.Vector3, amount: number, kind: 'normal' | 'crit' | 'heal'): void {
+  floatDamage(worldPos: THREE.Vector3, amount: number | string, kind: 'normal' | 'crit' | 'heal' | 'blocked'): void {
     const n = this.nums.find((x) => !x.active);
     if (!n) return;
     n.active = true;
@@ -401,8 +401,10 @@ export class Effects {
     n.pos.x += (Math.random() - 0.5) * 1.2;
     n.pos.y += 1.2 + Math.random() * 0.6;
     n.el.style.display = 'block';
-    n.el.className = 'dmg-num' + (kind === 'crit' ? ' crit' : kind === 'heal' ? ' heal' : '');
-    n.el.textContent = kind === 'heal' ? `+${Math.round(amount)}` : `${Math.round(amount)}`;
+    n.el.className = 'dmg-num' + (kind === 'crit' ? ' crit' : kind === 'heal' ? ' heal' : kind === 'blocked' ? ' blocked' : '');
+    n.el.textContent = kind === 'heal' ? `+${Math.round(amount as number)}`
+      : typeof amount === 'string' ? amount
+      : `${Math.round(amount)}`;
   }
 
   // ---------------- frame update ----------------

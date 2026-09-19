@@ -1,20 +1,32 @@
-/** Third-person tank camera with free orbit, zoom sight, collision and shake. */
+/**
+ * Third-person tank camera: free orbit, continuous wheel zoom with the RMB
+ * gunner sight, obstacle/terrain clamping, shake, and aim-ray analysis that
+ * feeds both the turret and the armor indicator HUD.
+ */
 import * as THREE from 'three';
 import type { Tank } from '../tank/Tank';
 import type { PhysicsWorld } from '../world/Physics';
 import type { Input } from '../core/Input';
 import type { Effects } from '../effects/Effects';
 import type { Settings } from '../core/Settings';
+import { CAMERA_ZOOM } from '../config/combat';
+import { analyzeHit, type HitAnalysis } from '../combat/ArmorMath';
 
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
   yaw = Math.PI;
   pitch = 0.3;
-  private dist = 13.5;
-  private curFov = 56;
+  /** wheel-driven zoom level, 0 = far .. 1 = full zoom */
+  zoomLevel = 0;
+  /** smoothed zoom actually applied (distance + FOV) */
+  private curZoom = 0;
+  private dist = CAMERA_ZOOM.maxDist;
+  private curFov = CAMERA_ZOOM.maxFov;
   aimPoint = new THREE.Vector3(0, 0, 100);
   /** enemy tank currently under the crosshair (for the target info panel) */
   aimedTarget: { tank: Tank; dist: number } | null = null;
+  /** armor analysis at the aim point (crosshair color / target panel) */
+  aimAnalysis: HitAnalysis | null = null;
   private time = 0;
   private showroomYaw = 0;
 
@@ -25,7 +37,12 @@ export class CameraRig {
     private effects: Effects,
     private settings: Settings,
   ) {
-    this.camera = new THREE.PerspectiveCamera(56, canvasAspect(), 0.3, 1100);
+    this.camera = new THREE.PerspectiveCamera(CAMERA_ZOOM.maxFov, canvasAspect(), 0.3, 1100);
+  }
+
+  /** 0..1 zoom fraction for HUD state (crosshair style etc.) */
+  get zoomFrac(): number {
+    return this.curZoom;
   }
 
   resize(aspect: number): void {
@@ -45,22 +62,37 @@ export class CameraRig {
       focus.z + Math.cos(yaw) * radius,
     );
     this.camera.lookAt(focus.x, height * 0.42 + 0.6, focus.z);
-    if (this.curFov !== 46) { this.curFov = 46; this.camera.fov = 46; this.camera.updateProjectionMatrix(); }
+    if (Math.abs(this.curFov - 46) > 0.1) {
+      this.curFov += (46 - this.curFov) * Math.min(1, 10 * dt);
+      this.camera.fov = this.curFov;
+      this.camera.updateProjectionMatrix();
+    }
   }
 
   updateBattle(dt: number, tank: Tank): void {
     this.time += dt;
-    const sens = this.settings.data.sensitivity * 0.0021;
+
+    // ---- zoom: wheel sets a persistent level, RMB forces the gunner sight ----
+    const wheel = this.input.consumeWheel();
+    if (wheel !== 0) {
+      this.zoomLevel = THREE.MathUtils.clamp(this.zoomLevel - wheel * CAMERA_ZOOM.wheelStep, 0, 1);
+    }
+    const targetZoom = this.input.buttonDown(2) ? 1 : this.zoomLevel;
+    this.curZoom += (targetZoom - this.curZoom) * Math.min(1, CAMERA_ZOOM.smoothing * dt);
+
+    // ---- look ----
+    // aim sensitivity scales with zoom so fine tracking stays possible zoomed in
+    const sens = this.settings.data.sensitivity * 0.0021 *
+      THREE.MathUtils.lerp(1, CAMERA_ZOOM.sensAtFullZoom, this.curZoom);
     const { dx, dy } = this.input.consumeMouseDelta();
     this.yaw -= dx * sens;
     this.pitch += dy * sens;
     this.pitch = THREE.MathUtils.clamp(this.pitch, -0.42, 1.05);
 
-    const zooming = this.input.buttonDown(2);
-    const targetDist = zooming ? 6.2 : 13.5;
+    const targetDist = THREE.MathUtils.lerp(CAMERA_ZOOM.maxDist, CAMERA_ZOOM.minDist, this.curZoom);
     this.dist += (targetDist - this.dist) * Math.min(1, 10 * dt);
-    const targetFov = zooming ? 34 : 56;
-    if (Math.abs(this.curFov - targetFov) > 0.1) {
+    const targetFov = THREE.MathUtils.lerp(CAMERA_ZOOM.maxFov, CAMERA_ZOOM.minFov, this.curZoom);
+    if (Math.abs(this.curFov - targetFov) > 0.05) {
       this.curFov += (targetFov - this.curFov) * Math.min(1, 10 * dt);
       this.camera.fov = this.curFov;
       this.camera.updateProjectionMatrix();
@@ -94,7 +126,7 @@ export class CameraRig {
     this.camera.lookAt(pivot);
     if (tr > 0.001) this.camera.rotation.z += (Math.random() - 0.5) * tr * tr * 0.05;
 
-    // aim ray through screen center
+    // ---- aim ray through screen center ----
     this.camera.getWorldDirection(_v3);
     const origin = this.camera.position;
     const maxT = 500;
@@ -106,6 +138,7 @@ export class CameraRig {
     if (obHit) bestT = Math.min(bestT, obHit.t * origin.distanceTo(segEnd));
     // tank OBBs — remember which vehicle sits under the crosshair
     let hitTank: Tank | null = null;
+    let hitPoint: THREE.Vector3 | null = null;
     const tanks = this.tanksProvider();
     for (const t of tanks) {
       if (!t.alive || t === tank) continue;
@@ -116,6 +149,13 @@ export class CameraRig {
       }
     }
     this.aimedTarget = hitTank ? { tank: hitTank, dist: bestT } : null;
+
+    // ---- armor indicator analysis (uses the player's own gun) ----
+    if (hitTank && hitTank.team !== tank.team) {
+      this.aimAnalysis = analyzeHit(hitTank, _aim.copy(origin).addScaledVector(_v3, bestT), _v3, bestT, tank.spec.gun.penetration);
+    } else {
+      this.aimAnalysis = null;
+    }
     this.aimPoint.copy(origin).addScaledVector(_v3, Math.max(4, bestT - 0.5));
   }
 
@@ -125,6 +165,7 @@ export class CameraRig {
 const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _v3 = new THREE.Vector3();
+const _aim = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 const _lp = new THREE.Vector3();
 
