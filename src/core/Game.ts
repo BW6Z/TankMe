@@ -113,10 +113,11 @@ export class Game {
     await frame();
 
     this.wireEvents();
-    window.addEventListener('resize', () => {
-      this.sceneSetup.resize();
-      this.cameraRig.resize(window.innerWidth / Math.max(1, window.innerHeight));
-    });
+    window.addEventListener('resize', this.resizeViewport);
+    // WebGL canvases start with a 300x150 drawing buffer. Synchronize it with
+    // the CSS viewport before the first rendered frame instead of waiting for
+    // the user to resize the browser window.
+    this.resizeViewport();
     document.addEventListener('pointerlockchange', () => {
       if (this.input.locked) {
         this.hadPointerLock = true;
@@ -134,6 +135,12 @@ export class Game {
     this.lastT = performance.now();
     requestAnimationFrame(this.tick);
   }
+
+  /** Keep the renderer/composer drawing buffers and camera projection aligned. */
+  private readonly resizeViewport = (): void => {
+    this.sceneSetup.resize();
+    this.cameraRig.resize(window.innerWidth / Math.max(1, window.innerHeight));
+  };
 
   // ---------------- event wiring ----------------
 
