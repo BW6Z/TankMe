@@ -11,6 +11,8 @@ import type { ScoreboardRow } from '../match/MatchManager';
 import { MATCH_CONFIG } from '../config/match';
 import type { ModuleId } from '../config/combat';
 import { MODULE_INFO } from '../config/combat';
+import { t, applyDomTranslations, setLocale, getLocale, onLocaleChange } from '../core/i18n';
+import type { Locale } from '../core/i18n';
 
 export interface UICallbacks {
   startBattle(modeId: string, tankId: string): void;
@@ -103,10 +105,60 @@ export class UI {
     this.wireMenus();
     this.buildDeploy();
     this.buildSettings();
+    applyDomTranslations();
+    this.syncLangButtons();
     id('team-a-label').textContent = TEAMS[0].name;
     id('team-b-label').textContent = TEAMS[1].name;
     id('results-team-a').textContent = TEAMS[0].name;
     id('results-team-b').textContent = TEAMS[1].name;
+    // runtime language switch: re-apply static labels + rebuild dynamic blocks
+    onLocaleChange(() => {
+      applyDomTranslations();
+      this.buildDeploy();
+      this.buildSettings();
+      this.syncLangButtons();
+    });
+    this.wireLangSwitch();
+  }
+
+  // ---------------- language ----------------
+
+  private wireLangSwitch(): void {
+    const apply = (l: Locale) => {
+      setLocale(l, this.settings);
+      this.syncLangButtons();
+    };
+    document.querySelectorAll<HTMLElement>('#lang-switch .lang-btn').forEach((b) => {
+      b.onclick = () => { this.click(); apply(b.dataset.locale as Locale); };
+    });
+    document.querySelectorAll<HTMLElement>('#lang-buttons .btn-toggle').forEach((b) => {
+      b.onclick = () => { this.click(); apply(b.dataset.locale as Locale); };
+    });
+  }
+
+  private syncLangButtons(): void {
+    const cur = getLocale();
+    document.querySelectorAll<HTMLElement>('#lang-switch .lang-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.locale === cur);
+    });
+    document.querySelectorAll<HTMLElement>('#lang-buttons .btn-toggle').forEach((b) => {
+      b.classList.toggle('active', b.dataset.locale === cur);
+    });
+    if (!document.getElementById('lang-buttons')?.children.length) this.buildLangButtons();
+  }
+
+  private buildLangButtons(): void {
+    const wrap = id<HTMLDivElement>('lang-buttons');
+    if (!wrap || wrap.children.length) return;
+    for (const l of ['zh-CN', 'en-US'] as Locale[]) {
+      const b = document.createElement('button');
+      b.className = 'btn-toggle';
+      b.dataset.locale = l;
+      b.textContent = l === 'zh-CN' ? '简体中文' : 'English (US)';
+      wrap.appendChild(b);
+    }
+    this.wireLangSwitch();
+    this.syncLangButtons();
   }
 
   show(screen: ScreenName): void {
@@ -156,12 +208,14 @@ export class UI {
     for (const m of MATCH_MODES) {
       const card = document.createElement('div');
       card.className = 'mode-card' + (m.id === this.selectedMode.id ? ' selected' : '');
+      const nameKey = m.id === '7v7' ? 'mode-7v7' : 'mode-14v14';
+      const nameHtml = t(nameKey).replace(/(\d+v\d+)$/i, '<b>$1</b>');
       card.innerHTML = `
         <div class="mc-row">
-          <div class="mc-name">${m.id === '7v7' ? 'SKIRMISH <b>7v7</b>' : 'FRONTLINE <b>14v14</b>'}</div>
-          <div class="mc-tag">FIRST TO ${m.scoreLimit}</div>
+          <div class="mc-name">${nameHtml}</div>
+          <div class="mc-tag">${t('first-to', { n: m.scoreLimit })}</div>
         </div>
-        <div class="mc-desc">${m.desc}</div>`;
+        <div class="mc-desc">${t(m.id === '7v7' ? 'mode-7v7-desc' : 'mode-14v14-desc')}</div>`;
       card.onclick = () => {
         this.selectedMode = m;
         modeWrap.querySelectorAll('.mode-card').forEach((c) => c.classList.remove('selected'));
@@ -183,8 +237,8 @@ export class UI {
         <div class="tc-sw" style="background: linear-gradient(135deg, ${hex}, #262b22)"></div>
         <div class="tc-info">
           <div class="tc-name">${spec.name}</div>
-          <div class="tc-class">${spec.cls} tank</div>
-          <div class="tc-pips" title="firepower">${pips(r.firepower)}</div>
+          <div class="tc-class">${t(`class-${spec.cls}`)}</div>
+          <div class="tc-pips" title="${t('stat-firepower')}">${pips(r.firepower)}</div>
         </div>`;
       card.onclick = () => {
         this.selectedTank = tid;
@@ -203,12 +257,12 @@ export class UI {
     const r = tankRatings(spec);
     const dps = (spec.gun.damage / spec.gun.reload).toFixed(0);
     const rows: [string, number, string][] = [
-      ['Hit points', r.hp, `${spec.maxHp} HP`],
-      ['Firepower', r.firepower, `${spec.gun.damage} dmg`],
-      ['DPM', spec.gun.damage / spec.gun.reload / 45, `${dps} dps`],
-      ['Armor', r.armor, `${spec.armor.front} front`],
-      ['Mobility', r.speed, `${(spec.mobility.maxSpeed * 3.6).toFixed(0)} km/h`],
-      ['Turret', r.turret, `${spec.mobility.turretRot.toFixed(1)} rad/s`],
+      [t('stat-hp'), r.hp, t('stat-hp-val', { n: spec.maxHp })],
+      [t('stat-firepower'), r.firepower, t('stat-dmg', { n: spec.gun.damage })],
+      [t('stat-dpm'), spec.gun.damage / spec.gun.reload / 55, `${dps} dps`],
+      [t('stat-armor'), r.armor, t('stat-armor-val', { n: spec.armor.front })],
+      [t('stat-mobility'), r.speed, `${(spec.mobility.maxSpeed * 3.6).toFixed(0)} ${t('unit-kmh')}`],
+      [t('stat-turret'), r.turret, `${spec.mobility.turretRot.toFixed(1)} ${t('unit-rad')}`],
     ];
     id<HTMLDivElement>('deploy-preview').innerHTML = `
       <div class="dp-name">${spec.name}</div>
@@ -262,12 +316,12 @@ export class UI {
     };
 
     const shakeBtn = id<HTMLButtonElement>('toggle-shake');
-    const renderShake = () => { shakeBtn.textContent = this.settings.data.shake ? 'ON' : 'OFF'; shakeBtn.classList.toggle('active', this.settings.data.shake); };
+    const renderShake = () => { shakeBtn.textContent = this.settings.data.shake ? t('on') : t('off'); shakeBtn.classList.toggle('active', this.settings.data.shake); };
     shakeBtn.onclick = () => { this.settings.data.shake = !this.settings.data.shake; this.settings.save(); renderShake(); };
     renderShake();
 
     const fpsBtn = id<HTMLButtonElement>('toggle-fps');
-    const renderFps = () => { fpsBtn.textContent = this.settings.data.showFps ? 'ON' : 'OFF'; fpsBtn.classList.toggle('active', this.settings.data.showFps); this.fpsCounter.classList.toggle('on', this.settings.data.showFps); };
+    const renderFps = () => { fpsBtn.textContent = this.settings.data.showFps ? t('on') : t('off'); fpsBtn.classList.toggle('active', this.settings.data.showFps); this.fpsCounter.classList.toggle('on', this.settings.data.showFps); };
     fpsBtn.onclick = () => { this.settings.data.showFps = !this.settings.data.showFps; this.settings.save(); renderFps(); };
     renderFps();
   }
@@ -297,7 +351,7 @@ export class UI {
       ? `conic-gradient(var(--reload-ready) 100%, transparent 0)`
       : `conic-gradient(var(--reload-warn) ${rf * 100}%, transparent 0)`;
     this.reloadRing.style.opacity = ready ? '0.35' : '0.9';
-    this.reloadText.textContent = ready ? 'READY' : `RELOADING · ${Math.max(0, data.reloadLeft).toFixed(1)}s`;
+    this.reloadText.textContent = ready ? t('hud-ready') : t('hud-reloading', { s: Math.max(0, data.reloadLeft).toFixed(1) });
     this.reloadText.className = ready ? '' : 'loading';
     this.crosshair.className = data.zoomed ? 'zoomed' : '';
     this.crosshair.style.setProperty('--spread', `${(6 + data.spread * 18).toFixed(1)}px`);
@@ -336,9 +390,9 @@ export class UI {
     this.speedHud.innerHTML = `${Math.abs(Math.round(data.speedKmh))} <span>km/h</span>`;
     this.setScore(this.scoreA, data.scoreA, 'a');
     this.setScore(this.scoreB, data.scoreB, 'b');
-    const t = Math.max(0, Math.ceil(data.timeLeft));
-    this.matchTimer.textContent = `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
-    this.matchTimer.classList.toggle('low', t <= 30);
+    const secs = Math.max(0, Math.ceil(data.timeLeft));
+    this.matchTimer.textContent = `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
+    this.matchTimer.classList.toggle('low', secs <= 30);
 
     // buffs + damaged modules (rebuild at 5Hz or on change)
     this.buffAcc += dt;
@@ -349,13 +403,13 @@ export class UI {
       const buffChips = data.buffs.map((b) => `
         <div class="buff-chip">
           <svg style="color:${b.def.cssColor}"><use href="#${BUFF_ICONS[b.id]}"/></svg>
-          <span class="bc-name">${b.def.name}</span>
+          <span class="bc-name">${t(`pu-${b.id}`)}</span>
           <span class="bc-time">${Math.ceil(b.time)}s</span>
           <div class="bc-bar" style="background:${b.def.cssColor};width:${Math.min(100, (b.time / b.def.duration) * 100)}%"></div>
         </div>`);
       const moduleChips = data.modules.map((m) => `
         <div class="buff-chip damaged">
-          <span class="bc-name">${MODULE_INFO[m].label}</span>
+          <span class="bc-name">${t(`mod-${m}`)}</span>
           <div class="bc-bar" style="background:${MODULE_INFO[m].cssColor}"></div>
         </div>`);
       this.buffBar.innerHTML = buffChips.join('') + moduleChips.join('');
@@ -369,7 +423,7 @@ export class UI {
     // respawn overlay
     if (!data.alive) {
       this.respawnOverlay.classList.add('visible');
-      this.respawnKiller.textContent = data.killedBy ? `destroyed by ${data.killedBy}` : 'vehicle lost';
+      this.respawnKiller.textContent = data.killedBy ? t('death-by', { name: data.killedBy }) : t('death-unknown');
       this.respawnCount.textContent = String(Math.max(0, Math.ceil(data.respawnTimer)));
     } else {
       this.respawnOverlay.classList.remove('visible');
@@ -473,7 +527,7 @@ export class UI {
     el.style.borderColor = def.cssColor;
     el.style.color = def.cssColor;
     const iconId = BUFF_ICONS[def.id];
-    el.innerHTML = `<svg style="color:${def.cssColor}"><use href="#${iconId}"/></svg> ${def.name}`;
+    el.innerHTML = `<svg style="color:${def.cssColor}"><use href="#${iconId}"/></svg> ${t(`pu-${def.id}`)}`;
     this.pickupBanner.appendChild(el);
     setTimeout(() => el.classList.add('out'), 2200);
     setTimeout(() => el.remove(), 2700);
@@ -498,9 +552,9 @@ export class UI {
   }): void {
     const banner = id<HTMLDivElement>('results-banner');
     banner.classList.remove('victory', 'defeat', 'draw');
-    if (payload.winner === 0) { banner.textContent = 'VICTORY'; banner.classList.add('victory'); }
-    else if (payload.winner === 1) { banner.textContent = 'DEFEAT'; banner.classList.add('defeat'); }
-    else { banner.textContent = 'DRAW'; banner.classList.add('draw'); }
+    if (payload.winner === 0) { banner.textContent = t('res-victory'); banner.classList.add('victory'); }
+    else if (payload.winner === 1) { banner.textContent = t('res-defeat'); banner.classList.add('defeat'); }
+    else { banner.textContent = t('res-draw'); banner.classList.add('draw'); }
 
     id<HTMLSpanElement>('results-score-a').textContent = String(payload.scores[0]);
     id<HTMLSpanElement>('results-score-b').textContent = String(payload.scores[1]);
@@ -509,19 +563,19 @@ export class UI {
     const acc = p && p.shots > 0 ? Math.round((p.hits / p.shots) * 100) : 0;
     const minutes = Math.max(1, (payload.elapsed ?? MATCH_CONFIG.duration) / 60);
     id<HTMLDivElement>('player-stats').innerHTML = p ? `
-      <div class="ps-cell"><div class="ps-val">${p.kills}</div><div class="ps-label">Kills</div></div>
-      <div class="ps-cell"><div class="ps-val">${p.deaths}</div><div class="ps-label">Deaths</div></div>
-      <div class="ps-cell"><div class="ps-val">${p.damage}</div><div class="ps-label">Damage dealt</div></div>
-      <div class="ps-cell"><div class="ps-val">${p.taken}</div><div class="ps-label">Damage taken</div></div>
-      <div class="ps-cell"><div class="ps-val">${p.shots}</div><div class="ps-label">Shots fired</div></div>
-      <div class="ps-cell"><div class="ps-val">${acc}%</div><div class="ps-label">Accuracy</div></div>
-      <div class="ps-cell"><div class="ps-val">${(p.damage / minutes).toFixed(0)}</div><div class="ps-label">DPM</div></div>
-      <div class="ps-cell"><div class="ps-val">${payload.scores[0] > payload.scores[1] ? TEAMS[0].name : payload.scores[1] > payload.scores[0] ? TEAMS[1].name : '—'}</div><div class="ps-label">Winner</div></div>
+      <div class="ps-cell"><div class="ps-val">${p.kills}</div><div class="ps-label">${t('res-kills')}</div></div>
+      <div class="ps-cell"><div class="ps-val">${p.deaths}</div><div class="ps-label">${t('res-deaths')}</div></div>
+      <div class="ps-cell"><div class="ps-val">${p.damage}</div><div class="ps-label">${t('res-dmg-dealt')}</div></div>
+      <div class="ps-cell"><div class="ps-val">${p.taken}</div><div class="ps-label">${t('res-dmg-taken')}</div></div>
+      <div class="ps-cell"><div class="ps-val">${p.shots}</div><div class="ps-label">${t('res-shots')}</div></div>
+      <div class="ps-cell"><div class="ps-val">${acc}%</div><div class="ps-label">${t('res-accuracy')}</div></div>
+      <div class="ps-cell"><div class="ps-val">${(p.damage / minutes).toFixed(0)}</div><div class="ps-label">${t('res-dpm')}</div></div>
+      <div class="ps-cell"><div class="ps-val">${payload.scores[0] > payload.scores[1] ? TEAMS[0].name : payload.scores[1] > payload.scores[0] ? TEAMS[1].name : '—'}</div><div class="ps-label">${t('res-winner')}</div></div>
     ` : '';
 
     const sb = id<HTMLTableElement>('scoreboard');
     sb.innerHTML = `
-      <tr><th>Team</th><th>Pilot</th><th>Vehicle</th><th>K</th><th>D</th><th>DMG</th><th>TAKEN</th></tr>
+      <tr><th>${t('sb-team')}</th><th>${t('sb-pilot')}</th><th>${t('sb-vehicle')}</th><th>${t('sb-k')}</th><th>${t('sb-d')}</th><th>${t('sb-dmg')}</th><th>${t('sb-taken')}</th></tr>
       ${payload.rows.map((r) => `
         <tr class="${r.isPlayer ? 'me' : ''}">
           <td class="tn-${r.team === 0 ? 'a' : 'b'}">${TEAMS[r.team].name}</td>

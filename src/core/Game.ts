@@ -24,9 +24,11 @@ import { QUALITY_PRESETS } from '../config/quality';
 import { MATCH_MODES } from '../config/match';
 import { bus, EV } from './Events';
 import { verdictLabel } from '../combat/ArmorMath';
+import { t as tt } from './i18n';
 import { POWERUPS } from '../config/powerups';
 import { MAP_CONFIG } from '../config/map';
 import { heightAt } from '../world/Terrain';
+import { t, initLocale } from './i18n';
 
 type State = 'boot' | 'menu' | 'battle' | 'paused' | 'results';
 
@@ -63,6 +65,7 @@ export class Game {
 
   private async boot(): Promise<void> {
     this.settings.load();
+    initLocale(this.settings);
 
     this.ui = new UI(this.settings, {
       startBattle: (mode, tank) => this.startBattle(mode, tank),
@@ -76,23 +79,23 @@ export class Game {
       },
     });
     this.input = new Input(this.canvas);
-    this.ui.loading(0.1, 'Igniting renderer…');
+    this.ui.loading(0.1, t('load-igniting'));
     await frame();
 
     this.sceneSetup = new GameScene(this.canvas, QUALITY_PRESETS[this.settings.data.quality]);
-    this.ui.loading(0.25, 'Raising terrain…');
+    this.ui.loading(0.25, t('load-terrain'));
     await frame();
 
     const mapData = buildMap(this.sceneSetup.scene, this.physics);
     this.coverPoints = mapData.coverPoints;
     this.windUniform = mapData.windUniform;
     this.showroom = mapData.showroom;
-    this.ui.loading(0.55, 'Charting navigation grid…');
+    this.ui.loading(0.55, t('load-navgrid'));
     await frame();
 
     this.navgrid = new NavGrid(this.physics);
     this.navgrid.build();
-    this.ui.loading(0.7, 'Loading ammunition…');
+    this.ui.loading(0.7, t('load-ammo'));
     await frame();
 
     const numsLayer = document.getElementById('dmg-layer')!;
@@ -109,7 +112,7 @@ export class Game {
     this.setDisplayTank(this.settings.data.lastTank);
     this.playerController = new PlayerController(this.input, this.cameraRig);
     this.minimap = new Minimap(document.getElementById('minimap') as HTMLCanvasElement);
-    this.ui.loading(0.9, 'Mustering tanks…');
+    this.ui.loading(0.9, t('load-tanks'));
     await frame();
 
     this.wireEvents();
@@ -128,7 +131,7 @@ export class Game {
     });
 
     (window as any).__tankme = { game: this };
-    this.ui.loading(1, 'Ready');
+    this.ui.loading(1, t('load-ready'));
     this.state = 'menu';
     this.ui.show('menu');
     this.audio.ensure();
@@ -149,7 +152,7 @@ export class Game {
       if (shooter?.isPlayer && amount > 0) {
         this.ui.hitmarker(crit);
         this.ui.combatFeedback(
-          `ARMOR PENETRATED −${Math.round(amount)}`,
+          t('cf-pen', { n: Math.round(amount) }),
           crit ? 'crit' : 'good',
         );
         this.effects.floatDamage(point, amount, crit ? 'crit' : 'normal');
@@ -173,19 +176,19 @@ export class Game {
     bus.on(EV.armorBlocked, ({ shooter, victim, reason }: any) => {
       if (shooter?.isPlayer) {
         this.ui.hitmarker(false);
-        this.ui.combatFeedback(reason === 'ricochet' ? 'RICOCHET' : 'NO PENETRATION', 'block');
+        this.ui.combatFeedback(reason === 'ricochet' ? t('cf-ricochet') : t('cf-no-pen'), 'block');
       }
       if (victim.isPlayer && shooter) {
-        this.ui.combatFeedback(reason === 'ricochet' ? 'RICOCHET OFF YOUR ARMOR' : 'ARMOR BLOCKED', 'good');
+        this.ui.combatFeedback(reason === 'ricochet' ? t('cf-ricochet-self') : t('cf-blocked'), 'good');
       }
     });
 
     bus.on(EV.criticalHit, ({ shooter, module }: any) => {
-      if (shooter?.isPlayer && module) this.ui.combatFeedback('CRITICAL HIT', 'crit');
+      if (shooter?.isPlayer && module) this.ui.combatFeedback(t('cf-crit'), 'crit');
     });
 
     bus.on(EV.moduleDamaged, ({ tank, module }: any) => {
-      if (tank.isPlayer) this.ui.combatFeedback(`YOUR ${String(module).toUpperCase()} DAMAGED`, 'bad');
+      if (tank.isPlayer) this.ui.combatFeedback(t('cf-module', { m: t(`mod-${module}`).split(' ')[0] }), 'bad');
     });
 
     bus.on(EV.tankDeath, ({ victim, attacker }: any) => {
@@ -196,7 +199,7 @@ export class Game {
       );
       // center-screen kill message for the player's own kills
       if (attacker?.isPlayer && victim.team !== attacker.team) {
-        this.ui.killMessage('ENEMY DESTROYED', victim.name);
+        this.ui.killMessage(t('kill-enemy'), victim.name);
       }
       const player = this.match?.playerTank;
       if (player) {
@@ -247,7 +250,7 @@ export class Game {
     this.state = 'battle';
     this.ui.show('battle');
     this.ui.resetHud();
-    this.ui.banner(MAP_CONFIG.name, `${mode.label} · FIRST TO ${mode.scoreLimit} KILLS`);
+    this.ui.banner(t('load-map'), t('banner-sub', { mode: t(mode.id === '7v7' ? 'mode-7v7' : 'mode-14v14'), n: mode.scoreLimit }));
     this.audio.battleStart();
     this.input.requestLock();
     this.prevReload = 0;
@@ -373,8 +376,8 @@ export class Game {
       const armorViz = az && at && at.tank.team !== player.team && player.alive
         ? {
             color: VERDICT_COLOR[az.verdict],
-            label: verdictLabel(az.verdict),
-            zone: az.zoneLabel,
+            label: tt(`verdict-${az.verdict}`),
+            zone: tt(`zone-${az.zone}`),
             eff: az.effArmor,
           }
         : null;

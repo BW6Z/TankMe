@@ -340,8 +340,13 @@ input[type="range"] { pointer-events: auto; width: 190px; accent-color: var(--ac
   filter: drop-shadow(0 0 8px rgba(255,80,60,.6));
 }
 
-#vehicle-panel { bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 60vw; }
-#buff-bar { display: flex; gap: 8px; min-height: 32px; flex-wrap: wrap; justify-content: center; max-width: 56vw; }
+/* player vehicle status — fixed bottom-center, fluid width for 1366→2560 */
+#vehicle-panel {
+  bottom: max(1.2vh, 10px); left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  width: min(560px, 92vw);
+}
+#buff-bar { display: flex; gap: 8px; min-height: 32px; flex-wrap: wrap; justify-content: center; max-width: 100%; }
 .buff-chip {
   position: relative; display: flex; align-items: center; gap: 7px;
   background: rgba(7,10,13,.82); border: 1px solid var(--panel-border);
@@ -356,15 +361,18 @@ input[type="range"] { pointer-events: auto; width: 190px; accent-color: var(--ac
 
 #vehicle-frame {
   background: rgba(7, 10, 13, 0.78); border: 1px solid var(--panel-border);
-  padding: 10px 18px 12px; min-width: 350px; backdrop-filter: blur(5px);
-  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 100%, 0 100%);
+  border-bottom: none;
+  padding: 8px 16px 10px; width: 100%; backdrop-filter: blur(5px);
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 100%, 0 100%);
 }
-#hud-tank-name { font-size: 11px; letter-spacing: 3px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: baseline; }
-#hud-tank-name b { color: var(--text); font-size: 13px; }
+#hud-tank-name { font-size: 11px; letter-spacing: 3px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+#hud-tank-name b { color: var(--text); font-size: 13px; white-space: nowrap; }
+#hud-tank-name span { white-space: nowrap; }
 #hp-bar { height: 9px; background: #161c22; overflow: hidden; position: relative; }
-#hp-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #4d9c42, var(--hp-green)); transition: width .2s; }
-#hp-fill.hurt { background: linear-gradient(90deg, #b0622e, #e0a030); }
-#hp-fill.critical { background: linear-gradient(90deg, #a12f2f, #ff5d5d); }
+/* flat military status colors — no gradient glow */
+#hp-fill { height: 100%; width: 100%; background: #5da84f; transition: width .2s; }
+#hp-fill.hurt { background: #c98f2e; }
+#hp-fill.critical { background: #c0392b; }
 #hp-ticks {
   position: absolute; inset: 0; pointer-events: none;
   background: repeating-linear-gradient(90deg, transparent 0, transparent calc(10% - 1px), rgba(0,0,0,.55) calc(10% - 1px), rgba(0,0,0,.55) 10%);
@@ -567,4 +575,72 @@ input[type="range"] { pointer-events: auto; width: 190px; accent-color: var(--ac
   #player-stats { grid-template-columns: repeat(4, 1fr); }
   .stat-row .stat-label { width: 74px; }
   .stat-row .stat-num { width: 78px; }
+}
+
+/* ============ language switch ============ */
+.lang-switch {
+  position: absolute; top: 18px; right: 20px; display: flex; gap: 4px;
+  pointer-events: auto; z-index: 5;
+}
+.lang-btn {
+  cursor: pointer; font-family: var(--font); font-size: 11px; font-weight: 600;
+  letter-spacing: 1px; color: var(--text-dim);
+  background: rgba(9, 12, 15, 0.72); border: 1px solid var(--panel-border);
+  padding: 6px 12px; transition: all .15s;
+}
+.lang-btn:hover { color: #fff; border-color: rgba(216,160,58,.55); }
+.lang-btn.active {
+  color: var(--accent); border-color: var(--accent-dim);
+  background: rgba(216,160,58,.10);
+}
+#lang-buttons .btn-toggle { min-width: 108px; }
+
+/* ============ realistic-military tone-down ============ */
+/* flatten remaining neon/gradients, keep colors semantic and quiet */
+.score-pop { animation: none !important; }
+#scorebar .team-score { text-shadow: none; }
+#match-timer.low { animation: none; color: #e0684c; }
+.battle-banner, #battle-banner { text-shadow: 0 1px 10px rgba(0,0,0,.85) !important; }
+#results-banner.victory { text-shadow: none; color: var(--accent); }
+#results-banner.defeat { text-shadow: none; color: #d05a4e; }
+.kf-item svg { color: #9aa4ab; }                      /* neutral skull, no gold */
+#ti-hp-fill { background: #b0483c; }                  /* target HP: flat military red */
+.ch-tick, #crosshair-dot { background: rgba(232, 238, 240, .95); }
+.dir-arc {
+  border-top: 4px solid rgba(214, 60, 44, .9);
+  filter: none;
+}
+.hm { background: #f2f4f5; box-shadow: 0 0 3px rgba(0,0,0,.8); }
+#hitmarker.crit .hm { background: #e8c04a; }
+.mm-n { color: #c8cdd0; }
+.stat-fill { background: #8a7a4a; }                    /* deploy stat bars: olive, no gradient */
+.ps-cell { background: rgba(255,255,255,.03); }
+.logo-block .logo { text-shadow: 0 1px 14px rgba(0,0,0,.9); }
+
+/* ============ responsive safeguards ============ */
+@media (max-width: 1500px) {
+  #target-info { top: 72px; width: 200px; }
+}
+@media (max-width: 1440px) {
+  .menu-left { width: 440px; padding: 0 48px; }
+}
+@media (max-width: 1380px) {
+  /* 1366x768 laptops: tighten the bottom HUD cluster */
+  #vehicle-panel { width: min(520px, 90vw); }
+  #speed-hud { bottom: 86px; }
+  #controls-hint { display: none; }
+  #pickup-banner { bottom: 150px; }
+  .deploy-left { width: 480px; padding: 10px 30px 22px 40px; }
+  .deploy-hint { display: none; }
+}
+@media (max-height: 800px) {
+  #vehicle-panel { bottom: 8px; }
+  #minimap-wrap { bottom: 10px; }
+  #minimap-wrap canvas { width: 168px; height: 168px; }
+  .buff-chip { padding: 4px 8px; }
+}
+/* browser zoom / large screens: cap HUD text scaling naturally via rem-vw mix */
+@media (min-width: 2000px) {
+  #vehicle-panel { width: min(640px, 60vw); }
+  .kf-item, .buff-chip .bc-name { font-size: 12px; }
 }

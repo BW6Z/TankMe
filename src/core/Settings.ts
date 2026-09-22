@@ -9,6 +9,8 @@ export interface SettingsData {
   showFps: boolean;
   lastMode: '7v7' | '14v14';
   lastTank: string;
+  /** UI language; undefined = auto-detect from the browser on first run */
+  locale?: 'en-US' | 'zh-CN';
 }
 
 const KEY = 'tankme.settings.v1';

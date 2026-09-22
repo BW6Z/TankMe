@@ -41,34 +41,38 @@
     <div id="loading-screen" class="screen visible">
       <div class="load-center">
         <div class="loading-logo">TANK<span>ME</span></div>
-        <div class="load-map" id="load-map-name">IRONRIDGE CROSSING</div>
+        <div class="load-map" id="load-map-name" data-i18n="load-map">IRONRIDGE CROSSING</div>
         <div class="loading-bar"><div id="loading-fill"></div></div>
-        <div class="loading-tip" id="loading-tip">Preparing battlefield…</div>
+        <div class="loading-tip" id="loading-tip" data-i18n="load-ready">Preparing battlefield…</div>
       </div>
     </div>
 
     <!-- ============ MAIN MENU ============ -->
     <div id="menu-screen" class="screen">
       <div class="menu-scrim"></div>
+      <div class="lang-switch" id="lang-switch">
+        <button class="lang-btn" data-locale="zh-CN">简体中文</button>
+        <button class="lang-btn" data-locale="en-US">English (US)</button>
+      </div>
       <div class="menu-left">
         <div class="logo-block">
           <h1 class="logo">TANK<span>ME</span></h1>
-          <div class="menu-subline">3D TEAM TANK BATTLES</div>
+          <div class="menu-subline" data-i18n="menu-subline">3D TEAM TANK BATTLES</div>
         </div>
         <nav class="menu-buttons">
           <button id="btn-battle" class="btn-menu primary">
-            <svg class="bi"><use href="#i-tank"/></svg><span>BATTLE</span><svg class="bi chev"><use href="#i-chev"/></svg>
+            <svg class="bi"><use href="#i-tank"/></svg><span data-i18n="menu-battle">BATTLE</span><svg class="bi chev"><use href="#i-chev"/></svg>
           </button>
           <button id="btn-howto" class="btn-menu">
-            <svg class="bi"><use href="#i-shell"/></svg><span>HOW TO PLAY</span><svg class="bi chev"><use href="#i-chev"/></svg>
+            <svg class="bi"><use href="#i-shell"/></svg><span data-i18n="menu-howto">HOW TO PLAY</span><svg class="bi chev"><use href="#i-chev"/></svg>
           </button>
           <button id="btn-settings" class="btn-menu">
-            <svg class="bi"><use href="#i-wrench"/></svg><span>SETTINGS</span><svg class="bi chev"><use href="#i-chev"/></svg>
+            <svg class="bi"><use href="#i-wrench"/></svg><span data-i18n="menu-settings">SETTINGS</span><svg class="bi chev"><use href="#i-chev"/></svg>
           </button>
         </nav>
         <div class="menu-footer">
-          <span>v0.2 · offline AI combat</span>
-          <span>Team Deathmatch · Ironridge Crossing</span>
+          <span data-i18n="menu-footer-1">v0.2 · offline AI combat</span>
+          <span data-i18n="menu-footer-2">Team Deathmatch · Ironridge Crossing</span>
         </div>
       </div>
     </div>
@@ -78,67 +82,74 @@
       <div class="deploy-scrim"></div>
       <div class="deploy-left">
         <div class="screen-header slim">
-          <button id="btn-deploy-back" class="btn-ghost">← BACK</button>
-          <h2 class="screen-title left">DEPLOY</h2>
+          <button id="btn-deploy-back" class="btn-ghost" data-i18n="back">← BACK</button>
+          <h2 class="screen-title left" data-i18n="deploy-title">DEPLOY</h2>
         </div>
         <div class="deploy-scroll">
-          <h3 class="col-label">BATTLE MODE</h3>
+          <h3 class="col-label" data-i18n="label-mode">BATTLE MODE</h3>
           <div id="mode-cards"></div>
-          <h3 class="col-label">SELECT VEHICLE</h3>
+          <h3 class="col-label" data-i18n="label-vehicle">SELECT VEHICLE</h3>
           <div id="tank-cards"></div>
-          <h3 class="col-label">PERFORMANCE</h3>
+          <h3 class="col-label" data-i18n="label-performance">PERFORMANCE</h3>
           <div id="deploy-preview"></div>
-          <div class="briefing-box">
+          <div class="briefing-box" data-i18n-html="briefing">
             Team Deathmatch on <b>Ironridge Crossing</b>. Destroy enemy armor to score
             for your team. Higher score when the timer ends wins. Grab supply drops
             on the marked points for a combat edge.
           </div>
         </div>
         <button id="btn-deploy" class="btn-menu primary deploy-go">
-          <svg class="bi"><use href="#i-nitro"/></svg><span>DEPLOY</span><svg class="bi chev"><use href="#i-chev"/></svg>
+          <svg class="bi"><use href="#i-nitro"/></svg><span data-i18n="deploy-go">DEPLOY</span><svg class="bi chev"><use href="#i-chev"/></svg>
         </button>
       </div>
-      <div class="deploy-hint">◀ vehicle preview</div>
+      <div class="deploy-hint" data-i18n="deploy-hint">◀ vehicle preview</div>
     </div>
 
     <!-- ============ SETTINGS ============ -->
     <div id="settings-screen" class="screen">
       <div class="panel-screen panel-narrow">
         <div class="screen-header">
-          <button id="btn-settings-back" class="btn-ghost">← BACK</button>
-          <h2 class="screen-title">SETTINGS</h2>
+          <button id="btn-settings-back" class="btn-ghost" data-i18n="back">← BACK</button>
+          <h2 class="screen-title" data-i18n="settings-title">SETTINGS</h2>
           <div class="header-spacer"></div>
         </div>
         <div class="settings-body">
           <div class="setting-group">
-            <div class="group-label">GRAPHICS</div>
+            <div class="group-label" data-i18n="set-language">LANGUAGE</div>
             <div class="setting-row">
-              <span class="setting-label">QUALITY PRESET</span>
+              <span class="setting-label" data-i18n="set-language">LANGUAGE</span>
+              <div id="lang-buttons" class="seg-buttons"></div>
+            </div>
+          </div>
+          <div class="setting-group">
+            <div class="group-label" data-i18n="set-graphics">GRAPHICS</div>
+            <div class="setting-row">
+              <span class="setting-label" data-i18n="set-quality">QUALITY PRESET</span>
               <div id="quality-buttons" class="seg-buttons"></div>
             </div>
             <div class="setting-row">
-              <span class="setting-label">SHOW FPS</span>
+              <span class="setting-label" data-i18n="set-fps">SHOW FPS</span>
               <button id="toggle-fps" class="btn-toggle">OFF</button>
             </div>
           </div>
           <div class="setting-group">
-            <div class="group-label">CONTROLS</div>
+            <div class="group-label" data-i18n="set-controls">CONTROLS</div>
             <div class="setting-row">
-              <span class="setting-label">MOUSE SENSITIVITY</span>
+              <span class="setting-label" data-i18n="set-sens">MOUSE SENSITIVITY</span>
               <div class="setting-control">
                 <input type="range" id="sensitivity" min="20" max="200" value="100" />
                 <span id="sensitivity-val" class="setting-val">1.00</span>
               </div>
             </div>
             <div class="setting-row">
-              <span class="setting-label">CAMERA SHAKE</span>
+              <span class="setting-label" data-i18n="set-shake">CAMERA SHAKE</span>
               <button id="toggle-shake" class="btn-toggle">ON</button>
             </div>
           </div>
           <div class="setting-group">
-            <div class="group-label">AUDIO</div>
+            <div class="group-label" data-i18n="set-audio">AUDIO</div>
             <div class="setting-row">
-              <span class="setting-label">MASTER VOLUME</span>
+              <span class="setting-label" data-i18n="set-volume">MASTER VOLUME</span>
               <div class="setting-control">
                 <input type="range" id="volume" min="0" max="100" value="80" />
                 <span id="volume-val" class="setting-val">80%</span>
@@ -153,28 +164,28 @@
     <div id="howto-screen" class="screen">
       <div class="panel-screen panel-narrow">
         <div class="screen-header">
-          <button id="btn-howto-back" class="btn-ghost">← BACK</button>
-          <h2 class="screen-title">HOW TO PLAY</h2>
+          <button id="btn-howto-back" class="btn-ghost" data-i18n="back">← BACK</button>
+          <h2 class="screen-title" data-i18n="howto-title">HOW TO PLAY</h2>
           <div class="header-spacer"></div>
         </div>
         <div class="howto-body">
           <table class="controls-table">
-            <tr><td class="key">W / S</td><td>Drive forward / reverse</td></tr>
-            <tr><td class="key">A / D</td><td>Steer hull left / right</td></tr>
-            <tr><td class="key">MOUSE</td><td>Aim camera — turret follows</td></tr>
-            <tr><td class="key">LEFT MOUSE</td><td>Fire main gun</td></tr>
-            <tr><td class="key">RIGHT MOUSE</td><td>Hold to zoom (gunner sight)</td></tr>
-            <tr><td class="key">SPACE</td><td>Emergency brake</td></tr>
-            <tr><td class="key">ESC</td><td>Pause menu</td></tr>
+            <tr><td class="key">W / S</td><td data-i18n="howto-drive">Drive forward / reverse</td></tr>
+            <tr><td class="key">A / D</td><td data-i18n="howto-steer">Steer hull left / right</td></tr>
+            <tr><td class="key">MOUSE</td><td data-i18n="howto-aim">Aim camera — turret follows</td></tr>
+            <tr><td class="key">LEFT MOUSE</td><td data-i18n="howto-fire">Fire main gun</td></tr>
+            <tr><td class="key">RIGHT MOUSE</td><td data-i18n="howto-zoom">Hold to zoom (gunner sight)</td></tr>
+            <tr><td class="key">SPACE</td><td data-i18n="howto-brake">Emergency brake</td></tr>
+            <tr><td class="key">ESC</td><td data-i18n="howto-pause">Pause menu</td></tr>
           </table>
           <div class="tips-box">
-            <h4>FIELD MANUAL</h4>
+            <h4 data-i18n="howto-manual">FIELD MANUAL</h4>
             <ul>
-              <li><b>Armor matters.</b> Frontal armor is thickest. Hit sides and especially the rear for far more damage.</li>
-              <li><b>Angle your hull.</b> Facing the enemy head-on makes their shots weaker.</li>
-              <li><b>Use cover.</b> Poke, shoot, hide. Reload behind buildings and rocks.</li>
-              <li><b>Supply drops</b> fall on marked points: repair, shield, damage boost and cloaking.</li>
-              <li><b>Teamwork wins.</b> Fight with your team — a lone tank is an easy kill.</li>
+              <li data-i18n-html="tip-1"><b>Armor matters.</b></li>
+              <li data-i18n-html="tip-2"></li>
+              <li data-i18n-html="tip-3"></li>
+              <li data-i18n-html="tip-4"></li>
+              <li data-i18n-html="tip-5"></li>
             </ul>
           </div>
         </div>
@@ -185,10 +196,10 @@
     <div id="hud" class="screen">
       <!-- target info -->
       <div id="target-info">
-        <div class="ti-top"><span class="ti-label">TARGET</span><span id="ti-name">—</span><span id="ti-dist">0 m</span></div>
+        <div class="ti-top"><span class="ti-label" data-i18n="hud-target">TARGET</span><span id="ti-name">—</span><span id="ti-dist">0 m</span></div>
         <div class="ti-hp"><div id="ti-hp-fill"></div></div>
-        <div class="ti-row"><span class="ti-label">ARMOR</span><span id="ti-armor">—</span></div>
-        <div class="ti-row"><span class="ti-label">PENETRATION</span><span id="ti-pen">—</span></div>
+        <div class="ti-row"><span class="ti-label" data-i18n="hud-armor">ARMOR</span><span id="ti-armor">—</span></div>
+        <div class="ti-row"><span class="ti-label" data-i18n="hud-penetration">PENETRATION</span><span id="ti-pen">—</span></div>
       </div>
 
       <!-- top center score bar -->
@@ -199,7 +210,7 @@
         </div>
         <div id="timer-wrap">
           <div id="match-timer">08:00</div>
-          <div id="match-mode-label">TEAM DEATHMATCH</div>
+          <div id="match-mode-label" data-i18n="hud-mode">TEAM DEATHMATCH</div>
         </div>
         <div class="team-block team-b">
           <span class="team-score" id="score-b">0</span>
@@ -240,11 +251,11 @@
 
       <!-- center kill message -->
       <div id="kill-banner">
-        <div id="kb-title">ENEMY DESTROYED</div>
+        <div id="kb-title" data-i18n="kill-enemy">ENEMY DESTROYED</div>
         <div id="kb-sub">—</div>
       </div>
 
-      <!-- bottom center vehicle panel -->
+      <!-- bottom center vehicle panel — the player's fixed bottom HP HUD -->
       <div id="vehicle-panel">
         <div id="buff-bar"></div>
         <div id="vehicle-frame">
@@ -256,11 +267,11 @@
       </div>
 
       <!-- speed -->
-      <div id="speed-hud">0 <span>km/h</span></div>
+      <div id="speed-hud">0 <span data-i18n="unit-kmh">km/h</span></div>
 
       <!-- misc -->
       <div id="pickup-banner"></div>
-      <div id="controls-hint">WASD drive · MOUSE aim · LMB fire · RMB zoom · ESC menu</div>
+      <div id="controls-hint" data-i18n="hud-controls">WASD drive · MOUSE aim · LMB fire · RMB zoom · ESC menu</div>
       <div id="fps-counter"></div>
       <div id="battle-banner"></div>
       <div id="vignette-damage"></div>
@@ -268,9 +279,9 @@
 
       <!-- respawn overlay -->
       <div id="respawn-overlay">
-        <div class="respawn-title">VEHICLE DESTROYED</div>
+        <div class="respawn-title" data-i18n="death-title">VEHICLE DESTROYED</div>
         <div id="respawn-killer">destroyed by —</div>
-        <div class="respawn-count-wrap">RESPAWN IN <span id="respawn-count">5</span></div>
+        <div class="respawn-count-wrap"><span data-i18n="respawn-in">RESPAWN IN</span> <span id="respawn-count">5</span></div>
       </div>
     </div>
 
@@ -280,11 +291,11 @@
     <!-- ============ PAUSE ============ -->
     <div id="pause-screen" class="screen">
       <div class="pause-panel">
-        <h2 class="pause-title">PAUSED</h2>
-        <button id="btn-resume" class="btn-menu primary"><span>RESUME</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
-        <button id="btn-pause-settings" class="btn-menu"><span>SETTINGS</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
-        <button id="btn-pause-howto" class="btn-menu"><span>HOW TO PLAY</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
-        <button id="btn-leave" class="btn-menu danger"><span>LEAVE BATTLE</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
+        <h2 class="pause-title" data-i18n="pause-title">PAUSED</h2>
+        <button id="btn-resume" class="btn-menu primary"><span data-i18n="pause-resume">RESUME</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
+        <button id="btn-pause-settings" class="btn-menu"><span data-i18n="pause-settings">SETTINGS</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
+        <button id="btn-pause-howto" class="btn-menu"><span data-i18n="pause-howto">HOW TO PLAY</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
+        <button id="btn-leave" class="btn-menu danger"><span data-i18n="pause-leave">LEAVE BATTLE</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
       </div>
     </div>
 
@@ -295,15 +306,15 @@
         <div id="results-banner">VICTORY</div>
         <div id="results-scores">
           <div class="team-block team-a"><span class="team-name" id="results-team-a">COBALT</span><span class="team-score" id="results-score-a">0</span></div>
-          <div id="results-vs">FINAL</div>
+          <div id="results-vs" data-i18n="res-final">FINAL</div>
           <div class="team-block team-b"><span class="team-score" id="results-score-b">0</span><span class="team-name" id="results-team-b">CRIMSON</span></div>
         </div>
         <div id="player-stats"></div>
-        <h4 class="scoreboard-label">BATTLE REPORT</h4>
+        <h4 class="scoreboard-label" data-i18n="res-report">BATTLE REPORT</h4>
         <div id="scoreboard-wrap"><table id="scoreboard"></table></div>
         <div class="results-buttons">
-          <button id="btn-rematch" class="btn-menu primary"><span>REMATCH</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
-          <button id="btn-results-menu" class="btn-menu"><span>MAIN MENU</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
+          <button id="btn-rematch" class="btn-menu primary"><span data-i18n="res-rematch">REMATCH</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
+          <button id="btn-results-menu" class="btn-menu"><span data-i18n="res-menu">MAIN MENU</span><svg class="bi chev"><use href="#i-chev"/></svg></button>
         </div>
       </div>
     </div>
