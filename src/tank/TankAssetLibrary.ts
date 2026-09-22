@@ -33,7 +33,7 @@ export class TankAssetLibrary {
       for (let lod = 0; lod < 3; lod++) {
         const p = new Promise<void>((resolve) => {
           this.loader.load(
-            `./tanks/${id}/${id}_LOD${lod}.glb`,
+            `${import.meta.env.BASE_URL}tanks/${id}/${id}_LOD${lod}.glb`,
             (gltf) => {
               const t = this.templates.get(id) ?? { levels: [] };
               t.levels[lod] = gltf.scene;

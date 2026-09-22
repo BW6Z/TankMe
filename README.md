@@ -290,3 +290,24 @@ Low / Medium / High 控制像素比、阴影（关/1024/2048）、粒子规模�
 - 引擎：Three.js — https://threejs.org
 - 建模：Blender — https://www.blender.org
 - TankMe 的全部资产（模型、贴图、音效、地图、界面）均为本项目原创生成
+
+## Static Deployment / 静态网站部署
+
+TankMe is a client-only game: no backend, account, database, or multiplayer server is required. / TankMe 是纯前端游戏，无需后端、账号、数据库或多人服务器。
+
+```bash
+npm install
+npm run typecheck
+npm run build
+npm run preview  # optional: test the production build locally
+```
+
+Upload the **contents of `dist/`** as the website root. Vite copies the tank GLBs from `public/tanks/` into `dist/tanks/`; Blender source files under `assets/` are not needed by the hosted game. The current battle uses procedural `TankVisual` models rather than requesting those GLBs; deployment does not change that behavior. The build uses a relative Vite base, so the same output works at a domain root or a repository subpath such as `/TankMe/`. Serve it over HTTPS; WebGL is required, and browser audio starts after the user interacts with the page. Settings are saved only in that browser's `localStorage`.
+
+把 **`dist/` 的内容**作为网站根目录部署。GLB 会从 `public/tanks/` 复制到 `dist/tanks/`，`assets/` 中的 Blender 源文件无需部署。当前战斗实际使用程序化 `TankVisual` 模型，并未请求这些 GLB；部署不会改变现有外观。当前 Vite 使用相对 `base`，因此既可部署到域名根路径，也可部署到 `/TankMe/` 这样的子路径。请使用 HTTPS；浏览器需支持 WebGL，音效在用户操作页面后启用，设置只保存在该浏览器的 `localStorage`。
+
+- **Vercel:** Import this repository, select `development` as the production branch if that is the branch you want to publish, and use the Vite preset. Build Command: `npm run build`; Output Directory: `dist`; Install Command: `npm install`. No `vercel.json` is needed.
+- **Netlify:** Import this repository and select the intended deploy branch (for example `development`). Build command: `npm run build`; publish directory: `dist`.
+- **GitHub Pages:** Use a build-and-deploy GitHub Actions workflow from the intended branch (for example `development`) that uploads `dist/` as the Pages artifact; set Settings → Pages → Source to **GitHub Actions**. Do not select “Deploy from a branch” with the unbuilt source tree. The relative base already supports the repository URL `https://BW6Z.github.io/TankMe/`.
+
+There is no client-side router, so no SPA rewrite or fallback rule is needed. / 项目没有客户端路由，不需要额外的 SPA 重写规则。
